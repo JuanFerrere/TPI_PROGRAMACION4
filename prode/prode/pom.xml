@@ -15,6 +15,7 @@
 	<description>API REST para una plataforma de pronosticos deportivos</description>
 	<properties>
 		<java.version>21</java.version>
+		<dotenv-java.version>3.2.0</dotenv-java.version>
 		<jjwt.version>0.12.6</jjwt.version>
 	</properties>
 	<dependencies>
@@ -44,6 +45,11 @@
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
 			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>io.github.cdimascio</groupId>
+			<artifactId>dotenv-java</artifactId>
+			<version>${dotenv-java.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>

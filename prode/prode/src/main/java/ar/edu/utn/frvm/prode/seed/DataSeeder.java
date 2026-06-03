@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.prode.seed;
 import ar.edu.utn.frvm.prode.user.entity.Role;
 import ar.edu.utn.frvm.prode.user.entity.User;
 import ar.edu.utn.frvm.prode.user.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -15,25 +16,33 @@ import org.springframework.stereotype.Component;
 @Component // Spring ejecuta este componente al iniciar la aplicacion.
 public class DataSeeder implements CommandLineRunner {
 
-	private static final String ADMIN_USERNAME = "admin";
-	private static final String ADMIN_EMAIL = "admin@prode.local";
-	private static final String ADMIN_PASSWORD = "Admin1234!";
-
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final String adminUsername;
+	private final String adminEmail;
+	private final String adminPassword;
 
 	/**
 	 * Constructor con dependencias necesarias para crear el admin.
 	 *
 	 * @param userRepository repositorio para consultar y guardar usuarios.
 	 * @param passwordEncoder componente que hashea la password con BCrypt.
+	 * @param adminUsername username del admin leido desde app.admin.username.
+	 * @param adminEmail email del admin leido desde app.admin.email.
+	 * @param adminPassword password del admin leida desde app.admin.password.
 	 */
 	public DataSeeder(
 			UserRepository userRepository,
-			PasswordEncoder passwordEncoder
+			PasswordEncoder passwordEncoder,
+			@Value("${app.admin.username}") String adminUsername,
+			@Value("${app.admin.email}") String adminEmail,
+			@Value("${app.admin.password}") String adminPassword
 	) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.adminUsername = adminUsername;
+		this.adminEmail = adminEmail;
+		this.adminPassword = adminPassword;
 	}
 
 	/**
@@ -43,19 +52,24 @@ public class DataSeeder implements CommandLineRunner {
 	 */
 	@Override // Implementa el metodo requerido por CommandLineRunner.
 	public void run(String... args) {
-		if (userRepository.existsByUsername(ADMIN_USERNAME) || userRepository.existsByEmail(ADMIN_EMAIL)) {
+		if (adminPassword == null || adminPassword.isBlank()) {
+			System.out.println("No se creo el admin inicial: falta configurar APP_ADMIN_PASSWORD.");
+			return;
+		}
+
+		if (userRepository.existsByUsername(adminUsername) || userRepository.existsByEmail(adminEmail)) {
 			System.out.println("Admin inicial ya existe. No se crea duplicado.");
 			return;
 		}
 
 		User admin = new User(
-				ADMIN_USERNAME,
-				ADMIN_EMAIL,
-				passwordEncoder.encode(ADMIN_PASSWORD),
+				adminUsername,
+				adminEmail,
+				passwordEncoder.encode(adminPassword),
 				Role.ADMIN
 		);
 
 		userRepository.save(admin);
-		System.out.println("Admin inicial creado: username=admin, email=admin@prode.local");
+		System.out.println("Admin inicial creado: username=" + adminUsername + ", email=" + adminEmail);
 	}
 }
