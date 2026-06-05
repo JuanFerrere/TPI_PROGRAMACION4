@@ -1,12 +1,17 @@
 package ar.edu.utn.frvm.prode.config;
 
+import ar.edu.utn.frvm.prode.common.dto.ErrorResponse;
 import ar.edu.utn.frvm.prode.security.JwtAuthenticationEntryPoint;
 import ar.edu.utn.frvm.prode.security.JwtAuthenticationFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -15,29 +20,36 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import java.time.Instant;
+
 /**
  * Configuracion principal de seguridad para la API.
  *
  * Esta clase reemplaza la configuracion temporal de Etapa 1 y prepara seguridad stateless con JWT.
  */
 @Configuration // Indica que esta clase declara beans de configuracion para Spring.
+@EnableMethodSecurity // Habilita @PreAuthorize para proteger endpoints por rol sin cambiar el filtro JWT.
 public class SecurityConfig {
 
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
 	private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+	private final ObjectMapper objectMapper;
 
 	/**
 	 * Constructor con dependencias de seguridad.
 	 *
 	 * @param jwtAuthenticationFilter filtro que lee y valida JWT.
 	 * @param jwtAuthenticationEntryPoint componente que responde 401 ante falta de autenticacion.
+	 * @param objectMapper herramienta para escribir respuestas JSON de seguridad.
 	 */
 	public SecurityConfig(
 			JwtAuthenticationFilter jwtAuthenticationFilter,
-			JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint
+			JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
+			ObjectMapper objectMapper
 	) {
 		this.jwtAuthenticationFilter = jwtAuthenticationFilter;
 		this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
+		this.objectMapper = objectMapper;
 	}
 
 	/**
@@ -57,6 +69,19 @@ public class SecurityConfig {
 				)
 				.exceptionHandling(exception -> exception
 						.authenticationEntryPoint(jwtAuthenticationEntryPoint) // Devuelve 401 JSON cuando falta autenticacion.
+						.accessDeniedHandler((request, response, accessDeniedException) -> { // Devuelve 403 JSON cuando el usuario no tiene el rol requerido.
+							ErrorResponse errorResponse = new ErrorResponse(
+									Instant.now(),
+									HttpStatus.FORBIDDEN.value(),
+									HttpStatus.FORBIDDEN.getReasonPhrase(),
+									"No tenes permisos para acceder a este recurso",
+									request.getRequestURI()
+							);
+
+							response.setStatus(HttpStatus.FORBIDDEN.value());
+							response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+							objectMapper.writeValue(response.getWriter(), errorResponse);
+						})
 				)
 				.authorizeHttpRequests(authorization -> authorization
 						.requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll() // Registro publico.

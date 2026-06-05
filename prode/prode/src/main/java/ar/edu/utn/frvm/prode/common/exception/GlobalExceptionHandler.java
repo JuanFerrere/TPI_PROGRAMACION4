@@ -4,10 +4,13 @@ import ar.edu.utn.frvm.prode.common.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.Instant;
 import java.util.stream.Collectors;
@@ -82,6 +85,21 @@ public class GlobalExceptionHandler {
 	}
 
 	/**
+	 * Maneja intentos de usar endpoints sin el rol requerido.
+	 *
+	 * @param exception excepcion generada por Spring Security al fallar @PreAuthorize.
+	 * @param request peticion HTTP original, usada para conocer el path.
+	 * @return respuesta HTTP 403 con cuerpo ErrorResponse.
+	 */
+	@ExceptionHandler(AccessDeniedException.class) // Ejecuta este metodo si un USER intenta una accion solo ADMIN.
+	public ResponseEntity<ErrorResponse> handleAccessDenied(
+			AccessDeniedException exception,
+			HttpServletRequest request
+	) {
+		return buildErrorResponse(HttpStatus.FORBIDDEN, "No tenes permisos para acceder a este recurso", request);
+	}
+
+	/**
 	 * Maneja errores de validacion producidos por @Valid.
 	 *
 	 * @param exception contiene todos los campos que fallaron validacion.
@@ -100,6 +118,45 @@ public class GlobalExceptionHandler {
 				.collect(Collectors.joining("; "));
 
 		return buildErrorResponse(HttpStatus.BAD_REQUEST, message, request);
+	}
+
+	/**
+	 * Maneja parametros con tipo incorrecto.
+	 *
+	 * Ejemplo: enviar ?status=ABIERTA cuando el enum solo permite PROGRAMADA, EN_JUEGO o FINALIZADA.
+	 *
+	 * @param exception contiene el nombre del parametro que no pudo convertirse.
+	 * @param request peticion HTTP original, usada para conocer el path.
+	 * @return respuesta HTTP 400 con cuerpo ErrorResponse.
+	 */
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class) // Captura errores de conversion de query params o path variables.
+	public ResponseEntity<ErrorResponse> handleTypeMismatch(
+			MethodArgumentTypeMismatchException exception,
+			HttpServletRequest request
+	) {
+		String message = "El parametro '" + exception.getName() + "' tiene un valor invalido";
+		return buildErrorResponse(HttpStatus.BAD_REQUEST, message, request);
+	}
+
+	/**
+	 * Maneja JSON invalido o campos con formato incorrecto.
+	 *
+	 * Ejemplo: startTime debe enviarse como ISO-8601 UTC, como 2026-06-20T19:00:00Z.
+	 *
+	 * @param exception excepcion generada al leer el body JSON.
+	 * @param request peticion HTTP original, usada para conocer el path.
+	 * @return respuesta HTTP 400 con cuerpo ErrorResponse.
+	 */
+	@ExceptionHandler(HttpMessageNotReadableException.class) // Captura JSON mal formado o tipos incompatibles en el body.
+	public ResponseEntity<ErrorResponse> handleUnreadableJson(
+			HttpMessageNotReadableException exception,
+			HttpServletRequest request
+	) {
+		return buildErrorResponse(
+				HttpStatus.BAD_REQUEST,
+				"El body JSON no tiene un formato valido. Verificar tipos de datos y fechas ISO-8601 UTC",
+				request
+		);
 	}
 
 	/**
