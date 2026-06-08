@@ -240,6 +240,76 @@ Los errores se devuelven con una estructura uniforme:
 }
 ```
 
+## Pruebas de Auth en Insomnia
+
+### Registrar usuario
+
+```http
+POST http://localhost:8080/api/auth/register
+```
+
+Body:
+
+```json
+{
+  "username": "juan",
+  "email": "juan@test.com",
+  "password": "Password123!"
+}
+```
+
+Esperado: `201 Created`, token JWT y datos publicos del usuario.
+
+### Login de usuario
+
+```http
+POST http://localhost:8080/api/auth/login
+```
+
+Body:
+
+```json
+{
+  "usernameOrEmail": "juan",
+  "password": "Password123!"
+}
+```
+
+Esperado: token JWT para usar en endpoints protegidos.
+
+### Login del admin precargado
+
+El admin se configura en `.env` con `APP_ADMIN_USERNAME`, `APP_ADMIN_EMAIL` y `APP_ADMIN_PASSWORD`.
+
+```http
+POST http://localhost:8080/api/auth/login
+```
+
+Body de ejemplo si `APP_ADMIN_PASSWORD=Admin1234!`:
+
+```json
+{
+  "usernameOrEmail": "admin",
+  "password": "Admin1234!"
+}
+```
+
+### Usar Bearer Token
+
+En Insomnia, agregar este header en cada request protegida:
+
+```text
+Authorization: Bearer PEGAR_TOKEN_AQUI
+```
+
+### Probar endpoint protegido
+
+```http
+GET http://localhost:8080/api/auth/me
+```
+
+Esperado: datos publicos del usuario autenticado. Sin token debe responder `401 Unauthorized`.
+
 ## Pruebas en Insomnia
 
 Antes de probar endpoints protegidos:
