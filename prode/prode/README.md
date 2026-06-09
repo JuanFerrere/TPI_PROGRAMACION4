@@ -2,7 +2,7 @@
 
 API REST backend para una plataforma de pronosticos deportivos tipo Prode.
 
-El proyecto esta desarrollado como trabajo practico de Programacion 4. Actualmente llega hasta la **Etapa 3: equipos, fechas y partidos**.
+El proyecto esta desarrollado como trabajo practico de Programacion 4. Actualmente llega hasta la **Etapa 4: sistema de pronosticos**.
 
 ## Integrantes
 
@@ -160,6 +160,8 @@ Reglas principales:
 - Se crea con estado `POR_JUGARSE`.
 - Solo se puede modificar si esta `POR_JUGARSE`.
 - Solo se puede eliminar si esta `POR_JUGARSE`.
+- No se puede modificar si ya tiene pronosticos asociados.
+- No se puede eliminar si ya tiene pronosticos asociados.
 - Solo se puede pasar a `EN_JUEGO` si esta `POR_JUGARSE`.
 - Al iniciar un partido, la fecha contenedora se recalcula automaticamente.
 - `homeGoals`, `awayGoals` y `resultTrend` pueden quedar `null` en esta etapa.
@@ -177,6 +179,50 @@ Estados de `MatchStatus`:
 - `VISITANTE`: gana el equipo visitante.
 
 En esta etapa queda preparado para resultados futuros, pero todavia no se cargan resultados reales ni puntuacion.
+
+## Etapa 4 - Pronosticos
+
+En esta etapa se implemento el sistema de pronosticos para partidos.
+
+Un pronostico representa lo que un usuario cree que va a pasar en un partido: goles del local y goles del visitante. A partir de esos goles, el backend calcula automaticamente la tendencia:
+
+- `LOCAL`: el usuario pronostico que gana el local.
+- `EMPATE`: el usuario pronostico empate.
+- `VISITANTE`: el usuario pronostico que gana el visitante.
+
+Reglas principales:
+
+- Cada pronostico pertenece a un usuario autenticado.
+- Cada pronostico pertenece a un partido.
+- Un usuario solo puede tener un pronostico por partido.
+- Si el usuario vuelve a enviar un pronostico para el mismo partido, se actualiza el existente.
+- Esto se llama `upsert`: crear si no existe, actualizar si ya existe.
+- No se permiten goles negativos.
+- Solo se puede pronosticar un partido en estado `POR_JUGARSE`.
+- No se puede crear ni modificar un pronostico desde 30 minutos antes del inicio del partido.
+- La hora usada para validar el bloqueo es la hora del servidor con `Instant.now()`, no una hora enviada por el cliente.
+- Los pronosticos de otros usuarios solo se pueden ver cuando ya cerro el periodo de carga.
+- `points` inicia en `0` y queda preparado para Etapa 5.
+- `exactHit` inicia en `false` y queda preparado para Etapa 5.
+
+### Bloqueo de 30 minutos
+
+La regla de bloqueo se calcula asi:
+
+```text
+horaLimite = startTime del partido - 30 minutos
+```
+
+Si la hora actual del servidor es igual o posterior a `horaLimite`, el backend rechaza la creacion o modificacion del pronostico.
+
+Ejemplo:
+
+```text
+startTime = 2026-06-20T19:00:00Z
+horaLimite = 2026-06-20T18:30:00Z
+```
+
+A partir de `18:30:00Z`, el pronostico queda bloqueado.
 
 ## Por que se usa Instant/UTC
 
@@ -211,6 +257,9 @@ Endpoints para cualquier usuario autenticado (`USER` o `ADMIN`):
 - `GET /api/match-days/{id}`
 - `GET /api/matches`
 - `GET /api/matches/{id}`
+- `POST /api/predictions/matches/{matchId}`
+- `GET /api/predictions/me`
+- `GET /api/predictions/matches/{matchId}`
 
 Endpoints solo `ADMIN`:
 
@@ -501,6 +550,163 @@ Body:
 
 Esperado: `403 Forbidden`.
 
+## Pruebas de Pronosticos en Insomnia
+
+Antes de probar pronosticos:
+
+1. Ejecutar la app.
+2. Registrar o loguear un usuario.
+3. Copiar el token.
+4. Usar el header:
+
+```text
+Authorization: Bearer TOKEN
+```
+
+### 1. Registrar usuario comun
+
+```http
+POST http://localhost:8080/api/auth/register
+```
+
+Body:
+
+```json
+{
+  "username": "juan",
+  "email": "juan@test.com",
+  "password": "Password123!"
+}
+```
+
+### 2. Login usuario comun
+
+```http
+POST http://localhost:8080/api/auth/login
+```
+
+Body:
+
+```json
+{
+  "usernameOrEmail": "juan",
+  "password": "Password123!"
+}
+```
+
+### 3. Crear pronostico
+
+```http
+POST http://localhost:8080/api/predictions/matches/1
+```
+
+Body:
+
+```json
+{
+  "predictedHomeGoals": 2,
+  "predictedAwayGoals": 1
+}
+```
+
+Esperado:
+
+- Se crea el pronostico.
+- `predictedTrend` queda `LOCAL`.
+- `points` queda `0`.
+- `exactHit` queda `false`.
+
+### 4. Modificar pronostico existente
+
+Volver a enviar un `POST` al mismo partido:
+
+```http
+POST http://localhost:8080/api/predictions/matches/1
+```
+
+Body:
+
+```json
+{
+  "predictedHomeGoals": 1,
+  "predictedAwayGoals": 1
+}
+```
+
+Esperado:
+
+- No se crea duplicado.
+- Se actualiza el pronostico existente.
+- `predictedTrend` queda `EMPATE`.
+
+### 5. Listar mis pronosticos
+
+```http
+GET http://localhost:8080/api/predictions/me
+```
+
+Esperado: lista de pronosticos del usuario autenticado.
+
+### 6. Filtrar mis pronosticos por estado de partido
+
+```http
+GET http://localhost:8080/api/predictions/me?matchStatus=POR_JUGARSE
+```
+
+Tambien se puede probar:
+
+```http
+GET http://localhost:8080/api/predictions/me?matchStatus=EN_JUEGO
+```
+
+```http
+GET http://localhost:8080/api/predictions/me?matchStatus=FINALIZADO
+```
+
+### 7. Intentar pronosticar partido EN_JUEGO
+
+Iniciar el partido con el endpoint administrativo:
+
+```http
+PATCH http://localhost:8080/api/matches/1/start
+```
+
+Luego intentar pronosticar:
+
+```http
+POST http://localhost:8080/api/predictions/matches/1
+```
+
+Esperado: `400 Bad Request` porque solo se pueden pronosticar partidos `POR_JUGARSE`.
+
+### 8. Intentar pronosticar cuando faltan menos de 30 minutos
+
+Crear o usar un partido cuyo `startTime` este a menos de 30 minutos de la hora actual del servidor.
+
+```http
+POST http://localhost:8080/api/predictions/matches/1
+```
+
+Esperado: `400 Bad Request` porque el periodo de carga ya esta bloqueado.
+
+### 9. Intentar ver pronosticos de terceros antes del bloqueo
+
+```http
+GET http://localhost:8080/api/predictions/matches/1
+```
+
+Esperado: `400 Bad Request` con mensaje indicando que los pronosticos estaran disponibles cuando cierre el periodo de carga.
+
+### 10. Ver pronosticos de un partido despues del bloqueo
+
+Usar un partido cuyo cierre de carga ya haya vencido.
+
+```http
+GET http://localhost:8080/api/predictions/matches/1
+```
+
+Esperado: lista de pronosticos cargados para ese partido.
+
 ## Errores comunes
 
 `401 Unauthorized`
@@ -520,6 +726,18 @@ Solucion: loguearse con el admin precargado para endpoints administrativos.
 Causa posible: local y visitante tienen el mismo id, falta algun id o falta `startTime`.
 
 Solucion: enviar ids existentes y equipos distintos.
+
+`400 Bad Request` al crear pronostico
+
+Causa posible: el partido no esta `POR_JUGARSE`, faltan menos de 30 minutos para el inicio o los goles son negativos.
+
+Solucion: usar un partido pendiente, fuera del periodo bloqueado y enviar goles mayores o iguales a cero.
+
+`400 Bad Request` al ver pronosticos de un partido
+
+Causa posible: todavia no cerro el periodo de carga del partido.
+
+Solucion: esperar a que falten 30 minutos o menos para el inicio del partido.
 
 `400 Bad Request` por fecha
 
@@ -553,13 +771,14 @@ Solucion: crear `.env` en la raiz del proyecto o configurar variables en Intelli
 
 ## Explicacion para defensa oral
 
-"En esta etapa implementamos el nucleo inicial del dominio deportivo: equipos, fechas y partidos. Los equipos representan los participantes, las fechas agrupan partidos y los partidos contienen local, visitante, horario y estado. Las operaciones de administracion estan protegidas por rol ADMIN, mientras que las consultas pueden realizarlas usuarios autenticados. Ademas, el estado de una fecha no se edita manualmente, sino que se recalcula desde el backend en funcion del estado de sus partidos."
+"En esta etapa implementamos el sistema de pronosticos. Cada usuario autenticado puede cargar un pronostico por partido y, si vuelve a enviarlo, se actualiza el existente para evitar duplicados. El backend calcula automaticamente la tendencia del pronostico y bloquea la carga 30 minutos antes del inicio usando la hora del servidor. Ademas, los pronosticos de otros usuarios quedan ocultos hasta que cierra el periodo de carga."
 
-## Que queda preparado para Etapa 4
+## Que queda preparado para Etapa 5
 
 - Los partidos ya tienen estado y horario.
 - Las fechas ya recalculan su estado desde sus partidos.
+- Los pronosticos ya tienen `points` y `exactHit`.
 - `ResultTrend`, `homeGoals` y `awayGoals` quedaron listos para resultados reales.
-- Hay un TODO para validar pronosticos asociados cuando exista `PredictionRepository`.
+- La restriccion unica usuario + partido evita duplicados.
 
-No se implementaron todavia pronosticos, bloqueo de 30 minutos, resultados reales, motor de puntuacion, rankings, grupos privados ni frontend.
+No se implementaron todavia resultados reales, motor de puntuacion final, rankings, grupos privados ni frontend.
