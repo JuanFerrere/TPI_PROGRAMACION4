@@ -64,4 +64,15 @@ public interface PredictionRepository extends JpaRepository<Prediction, Long> {
 	 * @return true si existe al menos un pronostico para ese partido.
 	 */
 	boolean existsByMatchId(Long matchId);
+
+	/**
+	 * Lista pronosticos de un conjunto de usuarios.
+	 *
+	 * Se usa en el ranking por grupo para obtener los pronosticos de todos los
+	 * miembros del grupo en una sola consulta. Evita N consultas individuales.
+	 *
+	 * @param userIds lista de ids de usuarios miembros del grupo.
+	 * @return pronosticos pertenecientes a esos usuarios.
+	 */
+	List<Prediction> findByUserIdIn(List<Long> userIds);
 }
