@@ -224,6 +224,90 @@ horaLimite = 2026-06-20T18:30:00Z
 
 A partir de `18:30:00Z`, el pronostico queda bloqueado.
 
+## Etapa 5 - Resultados, puntos y ranking global
+
+En esta etapa se cierra el ciclo de vida del partido: se carga el resultado real, se calculan los puntos de todos los pronosticos y se arma el ranking global.
+
+### Flujo de un partido
+
+```text
+POR_JUGARSE  ->  EN_JUEGO  ->  FINALIZADO
+   crear         /start         /result
+```
+
+- `PATCH /api/matches/{id}/start`: el ADMIN inicia el partido (pasa a `EN_JUEGO`).
+- `PATCH /api/matches/{id}/result`: el ADMIN carga el resultado real (pasa a `FINALIZADO`).
+
+### Cargar resultado
+
+El ADMIN envia solo los goles reales:
+
+```json
+{
+  "homeGoals": 2,
+  "awayGoals": 1
+}
+```
+
+Cuando se carga el resultado, el backend hace todo lo siguiente de forma automatica:
+
+1. Valida que el partido este `EN_JUEGO`.
+2. Calcula la tendencia real (`resultTrend`): `LOCAL`, `EMPATE` o `VISITANTE`.
+3. Guarda `homeGoals`, `awayGoals` y `resultTrend`.
+4. Cambia el partido a `FINALIZADO`.
+5. Calcula los puntos de **todos** los pronosticos del partido.
+6. Actualiza `exactHit` de cada pronostico.
+7. Recalcula el estado de la fecha contenedora.
+
+Importante: el cliente nunca manda la tendencia ni los puntos. El backend no confia en calculos del cliente; solo recibe los goles reales.
+
+### Regla de puntuacion
+
+Comparando el pronostico del usuario contra el resultado real:
+
+- **3 puntos** si acierta el resultado exacto (mismos goles de local y visitante).
+- **1 punto** si no acierta el exacto pero si la tendencia (quien gano o si fue empate).
+- **0 puntos** si no acierta ni el exacto ni la tendencia.
+
+Ejemplo con resultado real `2-1` (tendencia `LOCAL`):
+
+| Pronostico | Tendencia pronosticada | Puntos | exactHit |
+| ---------- | ---------------------- | ------ | -------- |
+| 2-1        | LOCAL                  | 3      | true     |
+| 1-0        | LOCAL                  | 1      | false    |
+| 0-1        | VISITANTE              | 0      | false    |
+
+- `exactHit` indica si el usuario acerto el marcador exacto. Solo es `true` cuando suma 3 puntos.
+- `resultTrend` es la tendencia REAL del partido, calculada por el backend a partir de los goles.
+
+### Ranking global
+
+```text
+GET /api/rankings/global
+```
+
+- Disponible para cualquier usuario autenticado.
+- Suma los puntos de todos los pronosticos de cada usuario.
+- Cuenta los aciertos exactos (`exactHits`) y la cantidad de pronosticos (`predictionsCount`).
+- Ordena por: mas puntos primero, luego mas aciertos exactos, luego `username` alfabetico como desempate estable.
+- Asigna la posicion (`position`) empezando en 1.
+- Si todavia no hay pronosticos, devuelve una lista vacia (no es un error).
+
+Ejemplo de respuesta:
+
+```json
+[
+  {
+    "position": 1,
+    "userId": 2,
+    "username": "juan",
+    "totalPoints": 9,
+    "exactHits": 2,
+    "predictionsCount": 5
+  }
+]
+```
+
 ## Por que se usa Instant/UTC
 
 Los partidos usan `Instant` porque representa un punto exacto del tiempo en UTC. Esto evita errores cuando distintas computadoras o servidores tienen zonas horarias distintas.
@@ -260,6 +344,7 @@ Endpoints para cualquier usuario autenticado (`USER` o `ADMIN`):
 - `POST /api/predictions/matches/{matchId}`
 - `GET /api/predictions/me`
 - `GET /api/predictions/matches/{matchId}`
+- `GET /api/rankings/global`
 
 Endpoints solo `ADMIN`:
 
@@ -271,6 +356,7 @@ Endpoints solo `ADMIN`:
 - `POST /api/matches`
 - `PUT /api/matches/{id}`
 - `PATCH /api/matches/{id}/start`
+- `PATCH /api/matches/{id}/result`
 - `DELETE /api/matches/{id}`
 
 La seguridad administrativa se aplica con `@PreAuthorize("hasRole('ADMIN')")`. Los usuarios se cargan con autoridad `ROLE_ADMIN`, por eso `hasRole('ADMIN')` coincide con la configuracion real.
@@ -707,6 +793,97 @@ GET http://localhost:8080/api/predictions/matches/1
 
 Esperado: lista de pronosticos cargados para ese partido.
 
+## Pruebas de Resultados y Ranking en Insomnia
+
+Estas pruebas cierran el ciclo completo: iniciar partido, cargar resultado, ver puntos y consultar el ranking.
+
+Preparacion sugerida:
+
+1. Login ADMIN.
+2. Crear equipos.
+3. Crear fecha.
+4. Crear partido.
+5. Login USER y crear pronostico.
+6. Login ADMIN para iniciar y finalizar el partido.
+
+### 1. Iniciar partido (ADMIN)
+
+```http
+PATCH http://localhost:8080/api/matches/1/start
+```
+
+Esperado: el partido queda `EN_JUEGO`.
+
+### 2. Cargar resultado (ADMIN)
+
+```http
+PATCH http://localhost:8080/api/matches/1/result
+```
+
+Body:
+
+```json
+{
+  "homeGoals": 2,
+  "awayGoals": 1
+}
+```
+
+Esperado:
+
+- El partido queda `FINALIZADO`.
+- `resultTrend` queda `LOCAL`.
+- `homeGoals` = 2.
+- `awayGoals` = 1.
+
+### 3. Verificar pronostico con puntos (USER)
+
+```http
+GET http://localhost:8080/api/predictions/me
+```
+
+Esperado, segun lo que haya pronosticado el usuario para un resultado real `2-1`:
+
+- Pronostico 2-1: `points` = 3, `exactHit` = true.
+- Pronostico 1-0: `points` = 1, `exactHit` = false.
+- Pronostico 0-1: `points` = 0, `exactHit` = false.
+
+### 4. Consultar ranking global
+
+```http
+GET http://localhost:8080/api/rankings/global
+```
+
+Esperado: lista ordenada por puntos. Si no hay pronosticos, lista vacia.
+
+### 5. Intentar cargar resultado como USER
+
+```http
+PATCH http://localhost:8080/api/matches/1/result
+```
+
+Esperado: `403 Forbidden` porque solo ADMIN puede cargar resultados.
+
+### 6. Intentar cargar resultado en partido POR_JUGARSE
+
+Usar un partido recien creado que todavia no fue iniciado.
+
+```http
+PATCH http://localhost:8080/api/matches/2/result
+```
+
+Esperado: `400 Bad Request` con mensaje `Solo se pueden cargar resultados de partidos que estan EN_JUEGO`.
+
+### 7. Intentar cargar resultado en partido FINALIZADO
+
+Volver a cargar resultado en el partido del paso 2.
+
+```http
+PATCH http://localhost:8080/api/matches/1/result
+```
+
+Esperado: `400 Bad Request` con mensaje `No se puede cargar resultado porque el partido ya esta FINALIZADO`.
+
 ## Errores comunes
 
 `401 Unauthorized`
@@ -738,6 +915,12 @@ Solucion: usar un partido pendiente, fuera del periodo bloqueado y enviar goles 
 Causa posible: todavia no cerro el periodo de carga del partido.
 
 Solucion: esperar a que falten 30 minutos o menos para el inicio del partido.
+
+`400 Bad Request` al cargar resultado
+
+Causa posible: el partido no esta `EN_JUEGO` (todavia esta `POR_JUGARSE` o ya esta `FINALIZADO`) o los goles son negativos.
+
+Solucion: iniciar el partido con `/start` antes de cargar el resultado y enviar goles mayores o iguales a cero.
 
 `400 Bad Request` por fecha
 
@@ -771,14 +954,13 @@ Solucion: crear `.env` en la raiz del proyecto o configurar variables en Intelli
 
 ## Explicacion para defensa oral
 
-"En esta etapa implementamos el sistema de pronosticos. Cada usuario autenticado puede cargar un pronostico por partido y, si vuelve a enviarlo, se actualiza el existente para evitar duplicados. El backend calcula automaticamente la tendencia del pronostico y bloquea la carga 30 minutos antes del inicio usando la hora del servidor. Ademas, los pronosticos de otros usuarios quedan ocultos hasta que cierra el periodo de carga."
+"En esta etapa cerramos el ciclo de vida del partido. El ADMIN inicia el partido y luego carga el resultado real enviando solo los goles; el backend nunca confia en calculos del cliente. Al cargar el resultado, el sistema calcula la tendencia real, finaliza el partido, recalcula los puntos de todos los pronosticos asociados (3 por resultado exacto, 1 por tendencia, 0 si no acierta), actualiza el acierto exacto y recalcula el estado de la fecha. Con esos puntos acumulados se arma el ranking global, que cualquier usuario autenticado puede consultar ordenado por puntos, aciertos exactos y nombre."
 
-## Que queda preparado para Etapa 5
+## Que queda preparado para Etapa 6
 
-- Los partidos ya tienen estado y horario.
-- Las fechas ya recalculan su estado desde sus partidos.
-- Los pronosticos ya tienen `points` y `exactHit`.
-- `ResultTrend`, `homeGoals` y `awayGoals` quedaron listos para resultados reales.
-- La restriccion unica usuario + partido evita duplicados.
+- Los partidos ya tienen resultado real, tendencia y estado `FINALIZADO`.
+- Los pronosticos ya tienen `points` y `exactHit` calculados automaticamente.
+- El ranking global ya suma puntos por usuario y los ordena.
+- La logica de puntuacion esta aislada en `PredictionScoringService`, lista para reutilizarse.
 
-No se implementaron todavia resultados reales, motor de puntuacion final, rankings, grupos privados ni frontend.
+No se implementaron todavia grupos privados, ranking por grupo ni frontend.

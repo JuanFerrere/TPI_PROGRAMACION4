@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.prode.match.controller;
 
 import ar.edu.utn.frvm.prode.match.dto.MatchCreateRequest;
 import ar.edu.utn.frvm.prode.match.dto.MatchResponse;
+import ar.edu.utn.frvm.prode.match.dto.MatchResultRequest;
 import ar.edu.utn.frvm.prode.match.dto.MatchUpdateRequest;
 import ar.edu.utn.frvm.prode.match.service.MatchService;
 import jakarta.validation.Valid;
@@ -127,6 +128,29 @@ public class MatchController {
 			@PathVariable Long id
 	) {
 		return matchService.startMatch(id);
+	}
+
+	/**
+	 * Carga el resultado real de un partido EN_JUEGO y lo finaliza.
+	 *
+	 * Este endpoint cierra el partido y dispara el calculo automatico de puntos de
+	 * todos los pronosticos asociados. El cliente solo envia los goles reales; el
+	 * backend calcula tendencia, puntos y nuevo estado de la fecha.
+	 *
+	 * Rol permitido: ADMIN.
+	 *
+	 * @param id identificador del partido.
+	 * @param request body JSON con homeGoals y awayGoals reales.
+	 * @return partido finalizado con su resultado como DTO.
+	 */
+	@PatchMapping("/{id}/result") // Atiende PATCH /api/matches/{id}/result.
+	@PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede cargar resultados.
+	public MatchResponse loadResult(
+			@PathVariable Long id,
+			@Valid // Valida que los goles esten presentes y no sean negativos.
+			@RequestBody MatchResultRequest request
+	) {
+		return matchService.loadResult(id, request);
 	}
 
 	/**

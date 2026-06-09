@@ -4,15 +4,18 @@ import ar.edu.utn.frvm.prode.common.exception.BusinessRuleException;
 import ar.edu.utn.frvm.prode.common.exception.ResourceNotFoundException;
 import ar.edu.utn.frvm.prode.match.dto.MatchCreateRequest;
 import ar.edu.utn.frvm.prode.match.dto.MatchResponse;
+import ar.edu.utn.frvm.prode.match.dto.MatchResultRequest;
 import ar.edu.utn.frvm.prode.match.dto.MatchUpdateRequest;
 import ar.edu.utn.frvm.prode.match.entity.Match;
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
+import ar.edu.utn.frvm.prode.match.entity.ResultTrend;
 import ar.edu.utn.frvm.prode.match.repository.MatchRepository;
 import ar.edu.utn.frvm.prode.matchday.entity.MatchDay;
 import ar.edu.utn.frvm.prode.matchday.entity.MatchDayStatus;
 import ar.edu.utn.frvm.prode.matchday.repository.MatchDayRepository;
 import ar.edu.utn.frvm.prode.matchday.service.MatchDayService;
 import ar.edu.utn.frvm.prode.prediction.repository.PredictionRepository;
+import ar.edu.utn.frvm.prode.prediction.service.PredictionScoringService;
 import ar.edu.utn.frvm.prode.team.entity.Team;
 import ar.edu.utn.frvm.prode.team.repository.TeamRepository;
 import org.springframework.stereotype.Service;
@@ -35,28 +38,32 @@ public class MatchService {
 	private final MatchDayRepository matchDayRepository;
 	private final TeamRepository teamRepository;
 	private final MatchDayService matchDayService;
+	private final PredictionScoringService predictionScoringService;
 
 	/**
-	 * Constructor con repositorios y service colaborador.
+	 * Constructor con repositorios y services colaboradores.
 	 *
 	 * @param matchRepository repositorio para partidos.
 	 * @param predictionRepository repositorio para validar pronosticos asociados a partidos.
 	 * @param matchDayRepository repositorio para validar fechas existentes.
 	 * @param teamRepository repositorio para validar equipos existentes.
 	 * @param matchDayService service usado para recalcular el estado de una fecha.
+	 * @param predictionScoringService service que calcula los puntos de los pronosticos al cargar un resultado.
 	 */
 	public MatchService(
 			MatchRepository matchRepository,
 			PredictionRepository predictionRepository,
 			MatchDayRepository matchDayRepository,
 			TeamRepository teamRepository,
-			MatchDayService matchDayService
+			MatchDayService matchDayService,
+			PredictionScoringService predictionScoringService
 	) {
 		this.matchRepository = matchRepository;
 		this.predictionRepository = predictionRepository;
 		this.matchDayRepository = matchDayRepository;
 		this.teamRepository = teamRepository;
 		this.matchDayService = matchDayService;
+		this.predictionScoringService = predictionScoringService;
 	}
 
 	/**
@@ -137,6 +144,52 @@ public class MatchService {
 		Match savedMatch = matchRepository.save(match);
 
 		// Regla de negocio: la fecha no se edita manualmente; se recalcula desde sus partidos.
+		matchDayService.refreshStatusByMatchDayId(savedMatch.getMatchDay().getId());
+
+		return toResponse(savedMatch);
+	}
+
+	/**
+	 * Carga el resultado real de un partido EN_JUEGO y dispara el calculo de puntos.
+	 *
+	 * Este metodo es el cierre del ciclo de vida de un partido. El cliente (ADMIN)
+	 * solo envia los goles reales; todo lo demas lo decide el backend:
+	 *  1. Valida que el partido este EN_JUEGO.
+	 *  2. Calcula la tendencia real (LOCAL, EMPATE o VISITANTE) a partir de los goles.
+	 *  3. Guarda goles y tendencia, y pasa el partido a FINALIZADO.
+	 *  4. Recalcula los puntos de TODOS los pronosticos del partido.
+	 *  5. Recalcula el estado de la fecha contenedora.
+	 *
+	 * @param id identificador del partido.
+	 * @param request goles reales del local y del visitante.
+	 * @return DTO del partido finalizado con su resultado.
+	 */
+	@Transactional // Resultado, finalizacion, puntaje y recalculo de fecha forman una unica unidad de trabajo.
+	public MatchResponse loadResult(Long id, MatchResultRequest request) {
+		Match match = getMatchEntityById(id);
+
+		// Regla de negocio: solo se cargan resultados de partidos EN_JUEGO. Se distinguen los dos casos invalidos
+		// para devolver un mensaje claro segun el estado actual del partido.
+		if (match.getStatus() == MatchStatus.FINALIZADO) {
+			throw new BusinessRuleException("No se puede cargar resultado porque el partido ya esta FINALIZADO");
+		}
+		if (match.getStatus() != MatchStatus.EN_JUEGO) {
+			throw new BusinessRuleException("Solo se pueden cargar resultados de partidos que estan EN_JUEGO");
+		}
+
+		// El backend calcula la tendencia real; nunca confia en un valor calculado por el cliente.
+		ResultTrend resultTrend = calculateResultTrend(request.homeGoals(), request.awayGoals());
+
+		match.setHomeGoals(request.homeGoals());
+		match.setAwayGoals(request.awayGoals());
+		match.setResultTrend(resultTrend);
+		match.setStatus(MatchStatus.FINALIZADO);
+		Match savedMatch = matchRepository.save(match);
+
+		// Regla de negocio: al finalizar el partido se recalculan los puntos de todos sus pronosticos.
+		predictionScoringService.scoreMatchPredictions(savedMatch);
+
+		// Regla de negocio: la fecha no se edita manualmente; se recalcula desde el estado de sus partidos.
 		matchDayService.refreshStatusByMatchDayId(savedMatch.getMatchDay().getId());
 
 		return toResponse(savedMatch);
@@ -244,6 +297,28 @@ public class MatchService {
 			throw new BusinessRuleException("El horario de inicio es obligatorio");
 		}
 		return startTime;
+	}
+
+	/**
+	 * Calcula la tendencia real de un partido a partir de los goles cargados.
+	 *
+	 * Es la misma logica que usa el pronostico, pero aplicada al resultado real:
+	 * sirve para comparar despues pronostico contra resultado y asignar puntos.
+	 *
+	 * @param homeGoals goles reales del local.
+	 * @param awayGoals goles reales del visitante.
+	 * @return LOCAL si gano el local, VISITANTE si gano el visitante o EMPATE si fueron iguales.
+	 */
+	private ResultTrend calculateResultTrend(int homeGoals, int awayGoals) {
+		if (homeGoals > awayGoals) {
+			return ResultTrend.LOCAL;
+		}
+
+		if (homeGoals < awayGoals) {
+			return ResultTrend.VISITANTE;
+		}
+
+		return ResultTrend.EMPATE;
 	}
 
 	/**
