@@ -12,6 +12,7 @@ import ar.edu.utn.frvm.prode.matchday.entity.MatchDay;
 import ar.edu.utn.frvm.prode.matchday.entity.MatchDayStatus;
 import ar.edu.utn.frvm.prode.matchday.repository.MatchDayRepository;
 import ar.edu.utn.frvm.prode.matchday.service.MatchDayService;
+import ar.edu.utn.frvm.prode.prediction.repository.PredictionRepository;
 import ar.edu.utn.frvm.prode.team.entity.Team;
 import ar.edu.utn.frvm.prode.team.repository.TeamRepository;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ import java.util.Objects;
 public class MatchService {
 
 	private final MatchRepository matchRepository;
+	private final PredictionRepository predictionRepository;
 	private final MatchDayRepository matchDayRepository;
 	private final TeamRepository teamRepository;
 	private final MatchDayService matchDayService;
@@ -38,17 +40,20 @@ public class MatchService {
 	 * Constructor con repositorios y service colaborador.
 	 *
 	 * @param matchRepository repositorio para partidos.
+	 * @param predictionRepository repositorio para validar pronosticos asociados a partidos.
 	 * @param matchDayRepository repositorio para validar fechas existentes.
 	 * @param teamRepository repositorio para validar equipos existentes.
 	 * @param matchDayService service usado para recalcular el estado de una fecha.
 	 */
 	public MatchService(
 			MatchRepository matchRepository,
+			PredictionRepository predictionRepository,
 			MatchDayRepository matchDayRepository,
 			TeamRepository teamRepository,
 			MatchDayService matchDayService
 	) {
 		this.matchRepository = matchRepository;
+		this.predictionRepository = predictionRepository;
 		this.matchDayRepository = matchDayRepository;
 		this.teamRepository = teamRepository;
 		this.matchDayService = matchDayService;
@@ -93,6 +98,12 @@ public class MatchService {
 		if (match.getStatus() != MatchStatus.POR_JUGARSE) {
 			throw new BusinessRuleException("No se puede modificar un partido que ya comenzo");
 		}
+
+		// Regla de negocio: cambiar equipos u horario afectaria pronosticos que los usuarios ya cargaron.
+		validateMatchHasNoPredictions(
+				match.getId(),
+				"No se puede modificar el partido porque ya tiene pronosticos asociados"
+		);
 
 		validateDifferentTeams(request.homeTeamId(), request.awayTeamId());
 
@@ -145,7 +156,12 @@ public class MatchService {
 			throw new BusinessRuleException("No se puede eliminar un partido que no esta POR_JUGARSE");
 		}
 
-		// TODO Etapa 4: cuando exista PredictionRepository, validar pronosticos asociados antes de eliminar.
+		// Regla de negocio: eliminar un partido con pronosticos romperia la integridad del sistema.
+		validateMatchHasNoPredictions(
+				match.getId(),
+				"No se puede eliminar el partido porque tiene pronosticos asociados"
+		);
+
 		Long matchDayId = match.getMatchDay().getId();
 		matchRepository.delete(match);
 		matchDayService.refreshStatusByMatchDayId(matchDayId);
@@ -228,6 +244,21 @@ public class MatchService {
 			throw new BusinessRuleException("El horario de inicio es obligatorio");
 		}
 		return startTime;
+	}
+
+	/**
+	 * Verifica que un partido no tenga pronosticos asociados.
+	 *
+	 * Un partido con pronosticos no debe modificarse ni eliminarse porque los
+	 * usuarios ya tomaron decisiones sobre equipos, horario y contexto del partido.
+	 *
+	 * @param matchId id del partido a validar.
+	 * @param message mensaje de negocio que se devuelve si hay pronosticos.
+	 */
+	private void validateMatchHasNoPredictions(Long matchId, String message) {
+		if (predictionRepository.existsByMatchId(matchId)) {
+			throw new BusinessRuleException(message);
+		}
 	}
 
 	/**
