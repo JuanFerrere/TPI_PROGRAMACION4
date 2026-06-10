@@ -11,6 +11,7 @@ const dashboardCards = [
     badge: "Fixture",
     description: "Consultá los partidos disponibles para cargar pronósticos.",
     variant: "primary",
+    path: "/matches",
   },
   {
     title: "Mis pronósticos",
@@ -103,8 +104,13 @@ function UserDashboard() {
               </Badge>
               <h2>{card.title}</h2>
               <p>{card.description}</p>
-              <Button disabled fullWidth variant="secondary">
-                Próximamente
+              <Button
+                disabled={!card.path}
+                fullWidth
+                onClick={() => card.path && navigate(card.path)}
+                variant="secondary"
+              >
+                {card.path ? "Ver partidos" : "Próximamente"}
               </Button>
             </Card>
           ))}

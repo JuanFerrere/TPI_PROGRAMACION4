@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router";
 import App from "./App.jsx";
 import Registro from "./pages/Registro.jsx";
 import Login from "./pages/Login.jsx";
+import MatchesPage from "./pages/MatchesPage.jsx";
 import UserDashboard from "./pages/UserDashboard.jsx";
 import "./index.css";
 
@@ -15,6 +16,7 @@ createRoot(document.getElementById("root")).render(
         <Route path="/registro" element={<Registro />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<UserDashboard />} />
+        <Route path="/matches" element={<MatchesPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>
