@@ -45,6 +45,7 @@ function Login() {
       localStorage.setItem("role", data.role);
 
       setMensaje("Inicio de sesión correcto.");
+      navigate("/dashboard", { replace: true });
     } catch (error) {
       setError(error.message);
     } finally {
