@@ -28,36 +28,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Service de grupos privados.
- *
- * Centraliza las reglas de negocio de Etapa 6: creacion, ingreso, detalle,
- * salida y ranking por grupo. El ranking reutiliza la lógica de acumulacion de
- * puntos del ranking global, pero filtrando únicamente los miembros del grupo.
- *
- * Estrategia del codigo de invitacion:
- * Se toman los primeros 8 caracteres del UUID generado (sin guiones) en
- * mayusculas. Esto produce un codigo hexadecimal en mayusculas como "3F2504E0".
- * La longitud de 8 caracteres sobre un alfabeto de 16 posibles da 16^8 = ~4.3
- * mil millones de combinaciones. Para el tamaño de este TPI es más que suficiente.
- * Se verifica unicidad en base antes de guardar con un bucle do-while.
- */
-@Service // Spring registra esta clase como service de dominio.
+@Service
 public class GroupService {
-
 	private final PrivateGroupRepository privateGroupRepository;
 	private final GroupMemberRepository groupMemberRepository;
 	private final PredictionRepository predictionRepository;
 	private final UserRepository userRepository;
 
-	/**
-	 * Constructor con repositorios necesarios.
-	 *
-	 * @param privateGroupRepository repositorio para grupos privados.
-	 * @param groupMemberRepository  repositorio para membresías de grupos.
-	 * @param predictionRepository   repositorio para calcular el ranking del grupo.
-	 * @param userRepository         repositorio para resolver el usuario autenticado.
-	 */
 	public GroupService(
 			PrivateGroupRepository privateGroupRepository,
 			GroupMemberRepository groupMemberRepository,
@@ -70,17 +47,7 @@ public class GroupService {
 		this.userRepository = userRepository;
 	}
 
-	/**
-	 * Crea un grupo privado y agrega al creador como primer miembro.
-	 *
-	 * El backend genera el código de invitación: el cliente solo elige el nombre.
-	 * El owner queda como miembro automáticamente al crear el grupo.
-	 *
-	 * @param request        nombre elegido por el usuario.
-	 * @param authentication usuario autenticado.
-	 * @return grupo creado como DTO.
-	 */
-	@Transactional // Creación del grupo y del miembro owner forman una sola unidad de trabajo.
+	@Transactional
 	public GroupResponse createGroup(GroupCreateRequest request, Authentication authentication) {
 		User owner = getAuthenticatedUser(authentication);
 
@@ -89,7 +56,6 @@ public class GroupService {
 		PrivateGroup group = new PrivateGroup(request.name(), inviteCode, owner);
 		PrivateGroup savedGroup = privateGroupRepository.save(group);
 
-		// El owner queda como primer miembro del grupo automáticamente.
 		GroupMember ownerMember = new GroupMember(savedGroup, owner);
 		groupMemberRepository.save(ownerMember);
 
@@ -97,17 +63,7 @@ public class GroupService {
 		return toGroupResponse(savedGroup, (int) membersCount);
 	}
 
-	/**
-	 * Une al usuario autenticado a un grupo usando el código de invitación.
-	 *
-	 * Si el usuario ya pertenece al grupo, se devuelve un error claro.
-	 * Si el código no existe, también se devuelve un error claro.
-	 *
-	 * @param request        código de invitación enviado por el cliente.
-	 * @param authentication usuario autenticado.
-	 * @return grupo al que se unió como DTO.
-	 */
-	@Transactional // Validaciones y creación de membresía en una sola unidad de trabajo.
+	@Transactional
 	public GroupResponse joinGroup(GroupJoinRequest request, Authentication authentication) {
 		User user = getAuthenticatedUser(authentication);
 
@@ -116,7 +72,6 @@ public class GroupService {
 						"No existe un grupo con el codigo de invitacion indicado"
 				));
 
-		// Regla de negocio: no se permite pertenecer dos veces al mismo grupo.
 		if (groupMemberRepository.existsByGroupIdAndUserId(group.getId(), user.getId())) {
 			throw new BusinessRuleException("El usuario ya pertenece a este grupo");
 		}
@@ -128,15 +83,7 @@ public class GroupService {
 		return toGroupResponse(group, (int) membersCount);
 	}
 
-	/**
-	 * Lista los grupos a los que pertenece el usuario autenticado.
-	 *
-	 * Si el usuario no pertenece a ningún grupo, devuelve lista vacía (no error).
-	 *
-	 * @param authentication usuario autenticado.
-	 * @return lista de grupos del usuario.
-	 */
-	@Transactional(readOnly = true) // Solo consulta, no modifica nada en la base.
+	@Transactional(readOnly = true)
 	public List<GroupResponse> getMyGroups(Authentication authentication) {
 		User user = getAuthenticatedUser(authentication);
 
@@ -151,22 +98,12 @@ public class GroupService {
 				.toList();
 	}
 
-	/**
-	 * Devuelve el detalle completo de un grupo, incluyendo la lista de miembros.
-	 *
-	 * Solo pueden acceder los usuarios que ya pertenecen al grupo.
-	 *
-	 * @param groupId        id del grupo.
-	 * @param authentication usuario autenticado.
-	 * @return detalle del grupo con lista de miembros.
-	 */
-	@Transactional(readOnly = true) // Solo consulta, no modifica nada en la base.
+	@Transactional(readOnly = true)
 	public GroupDetailResponse getGroupDetail(Long groupId, Authentication authentication) {
 		User user = getAuthenticatedUser(authentication);
 
 		PrivateGroup group = getGroupEntityById(groupId);
 
-		// Regla de seguridad: solo miembros pueden ver el detalle del grupo.
 		validateIsMember(group.getId(), user.getId(), "No tenes permisos para acceder a este grupo");
 
 		List<GroupMember> members = groupMemberRepository.findByGroupId(group.getId());
@@ -191,26 +128,14 @@ public class GroupService {
 		);
 	}
 
-	/**
-	 * Elimina la membresía del usuario autenticado en un grupo.
-	 *
-	 * Regla: el owner no puede abandonar su propio grupo. Esta restricción
-	 * simplifica el TPI evitando implementar transferencia de propiedad o
-	 * eliminación en cascada del grupo cuando queda sin dueño.
-	 *
-	 * @param groupId        id del grupo.
-	 * @param authentication usuario autenticado.
-	 */
-	@Transactional // Validaciones y eliminación de membresía en una sola unidad de trabajo.
+	@Transactional
 	public void leaveGroup(Long groupId, Authentication authentication) {
 		User user = getAuthenticatedUser(authentication);
 
 		PrivateGroup group = getGroupEntityById(groupId);
 
-		// Regla de negocio: solo miembros pueden salir del grupo.
 		validateIsMember(group.getId(), user.getId(), "No perteneces a este grupo");
 
-		// Regla de negocio: el owner no puede abandonar el grupo (simplificacion del TPI).
 		if (group.getOwner().getId().equals(user.getId())) {
 			throw new BusinessRuleException("El creador del grupo no puede abandonar el grupo");
 		}
@@ -218,28 +143,12 @@ public class GroupService {
 		groupMemberRepository.deleteByGroupIdAndUserId(group.getId(), user.getId());
 	}
 
-	/**
-	 * Calcula el ranking de un grupo filtrando solo sus miembros.
-	 *
-	 * Los puntos provienen de los pronósticos ya calculados en Etapa 5.
-	 * No se recalculan puntos: se suman los que ya tiene cada pronóstico.
-	 * El orden es: más puntos primero, desempate por exactHits, luego username.
-	 *
-	 * Diferencia clave con el ranking global: todos los miembros aparecen en
-	 * el ranking aunque no tengan pronósticos (con 0 puntos). Esto hace más
-	 * claro para el grupo quién participó y quién no.
-	 *
-	 * @param groupId        id del grupo.
-	 * @param authentication usuario autenticado.
-	 * @return lista ordenada de posiciones del ranking del grupo.
-	 */
-	@Transactional(readOnly = true) // Solo consulta, no modifica nada en la base.
+	@Transactional(readOnly = true)
 	public List<RankingResponse> getGroupRanking(Long groupId, Authentication authentication) {
 		User user = getAuthenticatedUser(authentication);
 
 		PrivateGroup group = getGroupEntityById(groupId);
 
-		// Regla de seguridad: solo miembros pueden ver el ranking del grupo.
 		validateIsMember(group.getId(), user.getId(), "No tenes permisos para ver el ranking de este grupo");
 
 		List<GroupMember> members = groupMemberRepository.findByGroupId(group.getId());
@@ -247,8 +156,6 @@ public class GroupService {
 				.map(m -> m.getUser().getId())
 				.toList();
 
-		// Se pre-inicializan acumuladores para todos los miembros con 0 puntos.
-		// Así aparecen en el ranking aunque no tengan pronósticos cargados.
 		Map<Long, UserScoreAccumulator> accumulatorByUser = new LinkedHashMap<>();
 		for (GroupMember member : members) {
 			User memberUser = member.getUser();
@@ -256,7 +163,6 @@ public class GroupService {
 					new UserScoreAccumulator(memberUser.getId(), memberUser.getUsername()));
 		}
 
-		// Se suman puntos de los pronósticos solo de los miembros del grupo.
 		List<Prediction> predictions = memberUserIds.isEmpty()
 				? List.of()
 				: predictionRepository.findByUserIdIn(memberUserIds);
@@ -268,11 +174,10 @@ public class GroupService {
 			}
 		}
 
-		// Mismo criterio de orden que el ranking global.
 		Comparator<UserScoreAccumulator> rankingOrder = Comparator
-				.comparingInt(UserScoreAccumulator::getTotalPoints).reversed()         // 1) más puntos primero.
-				.thenComparing(Comparator.comparingLong(UserScoreAccumulator::getExactHits).reversed()) // 2) más aciertos exactos.
-				.thenComparing(UserScoreAccumulator::getUsername);                     // 3) username alfabético como desempate estable.
+				.comparingInt(UserScoreAccumulator::getTotalPoints).reversed()
+				.thenComparing(Comparator.comparingLong(UserScoreAccumulator::getExactHits).reversed())
+				.thenComparing(UserScoreAccumulator::getUsername);
 
 		List<UserScoreAccumulator> ordered = accumulatorByUser.values().stream()
 				.sorted(rankingOrder)
@@ -295,39 +200,17 @@ public class GroupService {
 		return ranking;
 	}
 
-	/**
-	 * Verifica que el usuario sea miembro del grupo.
-	 *
-	 * @param groupId id del grupo.
-	 * @param userId  id del usuario.
-	 * @param message mensaje de error si no pertenece.
-	 */
 	private void validateIsMember(Long groupId, Long userId, String message) {
 		if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, userId)) {
 			throw new BusinessRuleException(message);
 		}
 	}
 
-	/**
-	 * Busca un grupo por id.
-	 *
-	 * @param id id del grupo.
-	 * @return entidad PrivateGroup encontrada.
-	 */
 	private PrivateGroup getGroupEntityById(Long id) {
 		return privateGroupRepository.findById(id)
 				.orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
 	}
 
-	/**
-	 * Genera un código de invitación único de 8 caracteres hexadecimales en mayúsculas.
-	 *
-	 * Se usa UUID como fuente de aleatoriedad. Se repite hasta obtener un código
-	 * que no exista en la base. En la práctica, la colisión es extremadamente
-	 * improbable para el volumen de este TPI.
-	 *
-	 * @return código de invitación único, por ejemplo "3F2504E0".
-	 */
 	private String generateInviteCode() {
 		String code;
 		do {
@@ -336,15 +219,6 @@ public class GroupService {
 		return code;
 	}
 
-	/**
-	 * Obtiene el usuario autenticado a partir de Spring Security.
-	 *
-	 * El filtro JWT deja cargado el username en Authentication. Con ese username
-	 * se consulta la base para obtener la entidad User real.
-	 *
-	 * @param authentication datos de autenticación de la request.
-	 * @return usuario autenticado.
-	 */
 	private User getAuthenticatedUser(Authentication authentication) {
 		if (authentication == null || !authentication.isAuthenticated()) {
 			throw new BadCredentialsException("Usuario no autenticado");
@@ -355,13 +229,6 @@ public class GroupService {
 				.orElseThrow(() -> new ResourceNotFoundException("Usuario autenticado no encontrado"));
 	}
 
-	/**
-	 * Convierte entidad PrivateGroup a DTO de salida resumido.
-	 *
-	 * @param group       entidad JPA interna.
-	 * @param membersCount cantidad de miembros calculada por el repositorio.
-	 * @return DTO de salida.
-	 */
 	private GroupResponse toGroupResponse(PrivateGroup group, int membersCount) {
 		return new GroupResponse(
 				group.getId(),
@@ -374,15 +241,7 @@ public class GroupService {
 		);
 	}
 
-	/**
-	 * Acumulador interno para sumar estadísticas de un miembro del grupo.
-	 *
-	 * Clase auxiliar privada idéntica en concepto a la de RankingService, pero
-	 * acotada al ranking de grupo. Se duplica intencionalmente para no generar
-	 * dependencias artificiales entre módulos.
-	 */
 	private static final class UserScoreAccumulator {
-
 		private final Long userId;
 		private final String username;
 		private int totalPoints;

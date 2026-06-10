@@ -15,23 +15,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.time.Instant;
 import java.util.stream.Collectors;
 
-/**
- * Manejador global de errores de la API.
- *
- * Centraliza las respuestas de error para que los controllers no mezclen logica
- * de negocio con armado manual de errores HTTP.
- */
-@RestControllerAdvice // Captura excepciones lanzadas por controllers y devuelve respuestas JSON.
+@RestControllerAdvice
 public class GlobalExceptionHandler {
-
-	/**
-	 * Maneja recursos duplicados como username o email repetidos.
-	 *
-	 * @param exception excepcion lanzada por el service.
-	 * @param request peticion HTTP original, usada para conocer el path.
-	 * @return respuesta HTTP 400 con cuerpo ErrorResponse.
-	 */
-	@ExceptionHandler(DuplicateResourceException.class) // Ejecuta este metodo ante DuplicateResourceException.
+	@ExceptionHandler(DuplicateResourceException.class)
 	public ResponseEntity<ErrorResponse> handleDuplicateResource(
 			DuplicateResourceException exception,
 			HttpServletRequest request
@@ -39,14 +25,7 @@ public class GlobalExceptionHandler {
 		return buildErrorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
 	}
 
-	/**
-	 * Maneja reglas de negocio incumplidas.
-	 *
-	 * @param exception excepcion lanzada por el service.
-	 * @param request peticion HTTP original, usada para conocer el path.
-	 * @return respuesta HTTP 400 con cuerpo ErrorResponse.
-	 */
-	@ExceptionHandler(BusinessRuleException.class) // Ejecuta este metodo ante BusinessRuleException.
+	@ExceptionHandler(BusinessRuleException.class)
 	public ResponseEntity<ErrorResponse> handleBusinessRule(
 			BusinessRuleException exception,
 			HttpServletRequest request
@@ -54,14 +33,7 @@ public class GlobalExceptionHandler {
 		return buildErrorResponse(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
 	}
 
-	/**
-	 * Maneja recursos inexistentes.
-	 *
-	 * @param exception excepcion lanzada al no encontrar un recurso.
-	 * @param request peticion HTTP original, usada para conocer el path.
-	 * @return respuesta HTTP 404 con cuerpo ErrorResponse.
-	 */
-	@ExceptionHandler(ResourceNotFoundException.class) // Ejecuta este metodo ante ResourceNotFoundException.
+	@ExceptionHandler(ResourceNotFoundException.class)
 	public ResponseEntity<ErrorResponse> handleResourceNotFound(
 			ResourceNotFoundException exception,
 			HttpServletRequest request
@@ -69,14 +41,7 @@ public class GlobalExceptionHandler {
 		return buildErrorResponse(HttpStatus.NOT_FOUND, exception.getMessage(), request);
 	}
 
-	/**
-	 * Maneja credenciales invalidas durante el login.
-	 *
-	 * @param exception excepcion generada por Spring Security.
-	 * @param request peticion HTTP original, usada para conocer el path.
-	 * @return respuesta HTTP 401 con cuerpo ErrorResponse.
-	 */
-	@ExceptionHandler(BadCredentialsException.class) // Ejecuta este metodo cuando username/email o password no coinciden.
+	@ExceptionHandler(BadCredentialsException.class)
 	public ResponseEntity<ErrorResponse> handleBadCredentials(
 			BadCredentialsException exception,
 			HttpServletRequest request
@@ -84,14 +49,7 @@ public class GlobalExceptionHandler {
 		return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Credenciales invalidas", request);
 	}
 
-	/**
-	 * Maneja intentos de usar endpoints sin el rol requerido.
-	 *
-	 * @param exception excepcion generada por Spring Security al fallar @PreAuthorize.
-	 * @param request peticion HTTP original, usada para conocer el path.
-	 * @return respuesta HTTP 403 con cuerpo ErrorResponse.
-	 */
-	@ExceptionHandler(AccessDeniedException.class) // Ejecuta este metodo si un USER intenta una accion solo ADMIN.
+	@ExceptionHandler(AccessDeniedException.class)
 	public ResponseEntity<ErrorResponse> handleAccessDenied(
 			AccessDeniedException exception,
 			HttpServletRequest request
@@ -99,14 +57,7 @@ public class GlobalExceptionHandler {
 		return buildErrorResponse(HttpStatus.FORBIDDEN, "No tenes permisos para acceder a este recurso", request);
 	}
 
-	/**
-	 * Maneja errores de validacion producidos por @Valid.
-	 *
-	 * @param exception contiene todos los campos que fallaron validacion.
-	 * @param request peticion HTTP original, usada para conocer el path.
-	 * @return respuesta HTTP 400 con los mensajes de validacion.
-	 */
-	@ExceptionHandler(MethodArgumentNotValidException.class) // Ejecuta este metodo cuando falla una validacion de DTO.
+	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<ErrorResponse> handleValidation(
 			MethodArgumentNotValidException exception,
 			HttpServletRequest request
@@ -120,16 +71,7 @@ public class GlobalExceptionHandler {
 		return buildErrorResponse(HttpStatus.BAD_REQUEST, message, request);
 	}
 
-	/**
-	 * Maneja parametros con tipo incorrecto.
-	 *
-	 * Ejemplo: enviar ?status=ABIERTA cuando el enum solo permite PROGRAMADA, EN_JUEGO o FINALIZADA.
-	 *
-	 * @param exception contiene el nombre del parametro que no pudo convertirse.
-	 * @param request peticion HTTP original, usada para conocer el path.
-	 * @return respuesta HTTP 400 con cuerpo ErrorResponse.
-	 */
-	@ExceptionHandler(MethodArgumentTypeMismatchException.class) // Captura errores de conversion de query params o path variables.
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
 	public ResponseEntity<ErrorResponse> handleTypeMismatch(
 			MethodArgumentTypeMismatchException exception,
 			HttpServletRequest request
@@ -138,16 +80,7 @@ public class GlobalExceptionHandler {
 		return buildErrorResponse(HttpStatus.BAD_REQUEST, message, request);
 	}
 
-	/**
-	 * Maneja JSON invalido o campos con formato incorrecto.
-	 *
-	 * Ejemplo: startTime debe enviarse como ISO-8601 UTC, como 2026-06-20T19:00:00Z.
-	 *
-	 * @param exception excepcion generada al leer el body JSON.
-	 * @param request peticion HTTP original, usada para conocer el path.
-	 * @return respuesta HTTP 400 con cuerpo ErrorResponse.
-	 */
-	@ExceptionHandler(HttpMessageNotReadableException.class) // Captura JSON mal formado o tipos incompatibles en el body.
+	@ExceptionHandler(HttpMessageNotReadableException.class)
 	public ResponseEntity<ErrorResponse> handleUnreadableJson(
 			HttpMessageNotReadableException exception,
 			HttpServletRequest request
@@ -159,14 +92,7 @@ public class GlobalExceptionHandler {
 		);
 	}
 
-	/**
-	 * Maneja cualquier error no contemplado explicitamente.
-	 *
-	 * @param exception error general de Java o Spring.
-	 * @param request peticion HTTP original, usada para conocer el path.
-	 * @return respuesta HTTP 500 con mensaje generico.
-	 */
-	@ExceptionHandler(Exception.class) // Ultima red de seguridad para errores no previstos.
+	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleGeneralError(
 			Exception exception,
 			HttpServletRequest request
@@ -178,14 +104,6 @@ public class GlobalExceptionHandler {
 		);
 	}
 
-	/**
-	 * Construye la respuesta de error con formato comun.
-	 *
-	 * @param status estado HTTP que corresponde al error.
-	 * @param message mensaje que vera el cliente.
-	 * @param request peticion HTTP original.
-	 * @return ResponseEntity con status HTTP y cuerpo ErrorResponse.
-	 */
 	private ResponseEntity<ErrorResponse> buildErrorResponse(
 			HttpStatus status,
 			String message,

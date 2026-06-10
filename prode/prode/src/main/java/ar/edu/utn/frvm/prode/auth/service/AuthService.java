@@ -19,14 +19,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Servicio de autenticacion.
- *
- * Contiene la logica de registro, login y consulta del usuario autenticado.
- */
-@Service // Marca esta clase como componente de logica de negocio administrado por Spring.
+@Service
 public class AuthService {
-
 	private static final String TOKEN_TYPE = "Bearer";
 
 	private final UserRepository userRepository;
@@ -34,14 +28,6 @@ public class AuthService {
 	private final JwtService jwtService;
 	private final AuthenticationManager authenticationManager;
 
-	/**
-	 * Constructor con todas las dependencias necesarias.
-	 *
-	 * @param userRepository repositorio para consultar y guardar usuarios.
-	 * @param passwordEncoder componente que hashea y verifica contrasenas con BCrypt.
-	 * @param jwtService servicio que genera y valida tokens JWT.
-	 * @param authenticationManager componente de Spring Security que valida credenciales.
-	 */
 	public AuthService(
 			UserRepository userRepository,
 			PasswordEncoder passwordEncoder,
@@ -54,13 +40,7 @@ public class AuthService {
 		this.authenticationManager = authenticationManager;
 	}
 
-	/**
-	 * Registra un usuario nuevo con rol USER.
-	 *
-	 * @param request datos enviados por el cliente: username, email y password.
-	 * @return AuthResponse con token JWT y datos publicos del usuario.
-	 */
-	@Transactional // Ejecuta el registro dentro de una transaccion de base de datos.
+	@Transactional
 	public AuthResponse register(RegisterRequest request) {
 		validateUsernameIsAvailable(request.username());
 		validateEmailIsAvailable(request.email());
@@ -80,13 +60,7 @@ public class AuthService {
 		return toAuthResponse(savedUser, token);
 	}
 
-	/**
-	 * Inicia sesion con username o email y password.
-	 *
-	 * @param request datos de login enviados por el cliente.
-	 * @return AuthResponse con token JWT y datos publicos del usuario.
-	 */
-	@Transactional(readOnly = true) // Solo consulta datos; no modifica la base.
+	@Transactional(readOnly = true)
 	public AuthResponse login(LoginRequest request) {
 		try {
 			authenticationManager.authenticate(
@@ -107,12 +81,7 @@ public class AuthService {
 		return toAuthResponse(user, token);
 	}
 
-	/**
-	 * Devuelve los datos publicos del usuario autenticado.
-	 *
-	 * @return UserResponse sin password.
-	 */
-	@Transactional(readOnly = true) // Solo consulta datos del usuario autenticado.
+	@Transactional(readOnly = true)
 	public UserResponse getCurrentUser() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -128,35 +97,18 @@ public class AuthService {
 		return toUserResponse(user);
 	}
 
-	/**
-	 * Verifica que el username no exista antes de registrar.
-	 *
-	 * @param username nombre de usuario solicitado.
-	 */
 	private void validateUsernameIsAvailable(String username) {
 		if (userRepository.existsByUsername(username)) {
 			throw new DuplicateResourceException("El username ya esta registrado");
 		}
 	}
 
-	/**
-	 * Verifica que el email no exista antes de registrar.
-	 *
-	 * @param email email solicitado.
-	 */
 	private void validateEmailIsAvailable(String email) {
 		if (userRepository.existsByEmail(email)) {
 			throw new DuplicateResourceException("El email ya esta registrado");
 		}
 	}
 
-	/**
-	 * Convierte un User interno en respuesta de autenticacion.
-	 *
-	 * @param user entidad guardada en base de datos.
-	 * @param token JWT generado.
-	 * @return DTO seguro para devolver al cliente.
-	 */
 	private AuthResponse toAuthResponse(User user, String token) {
 		return new AuthResponse(
 				token,
@@ -167,12 +119,6 @@ public class AuthService {
 		);
 	}
 
-	/**
-	 * Convierte un User interno en respuesta publica de usuario.
-	 *
-	 * @param user entidad guardada en base de datos.
-	 * @return DTO sin password.
-	 */
 	private UserResponse toUserResponse(User user) {
 		return new UserResponse(
 				user.getId(),

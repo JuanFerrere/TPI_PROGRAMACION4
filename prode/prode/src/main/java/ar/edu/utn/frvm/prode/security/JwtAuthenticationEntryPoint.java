@@ -14,33 +14,15 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.time.Instant;
 
-/**
- * Componente que define la respuesta cuando un endpoint protegido se intenta usar sin autenticacion valida.
- *
- * AuthenticationEntryPoint es el punto de entrada de Spring Security para responder errores 401.
- */
-@Component // Spring registra esta clase para usarla dentro de SecurityConfig.
+@Component
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
-
 	private final ObjectMapper objectMapper;
 
-	/**
-	 * Constructor con ObjectMapper.
-	 *
-	 * @param objectMapper herramienta de Jackson para convertir objetos Java a JSON.
-	 */
 	public JwtAuthenticationEntryPoint(ObjectMapper objectMapper) {
 		this.objectMapper = objectMapper;
 	}
 
-	/**
-	 * Construye la respuesta 401 cuando no hay token o el token no es valido.
-	 *
-	 * @param request peticion HTTP original.
-	 * @param response respuesta HTTP que se enviara al cliente.
-	 * @param authException excepcion de autenticacion detectada por Spring Security.
-	 */
-	@Override // Implementa el metodo exigido por AuthenticationEntryPoint.
+	@Override
 	public void commence(
 			HttpServletRequest request,
 			HttpServletResponse response,

@@ -8,29 +8,14 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-/**
- * Carga datos iniciales para desarrollo.
- *
- * En esta etapa crea un usuario ADMIN para poder probar permisos futuros.
- */
-@Component // Spring ejecuta este componente al iniciar la aplicacion.
+@Component
 public class DataSeeder implements CommandLineRunner {
-
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final String adminUsername;
 	private final String adminEmail;
 	private final String adminPassword;
 
-	/**
-	 * Constructor con dependencias necesarias para crear el admin.
-	 *
-	 * @param userRepository repositorio para consultar y guardar usuarios.
-	 * @param passwordEncoder componente que hashea la password con BCrypt.
-	 * @param adminUsername username del admin leido desde app.admin.username.
-	 * @param adminEmail email del admin leido desde app.admin.email.
-	 * @param adminPassword password del admin leida desde app.admin.password.
-	 */
 	public DataSeeder(
 			UserRepository userRepository,
 			PasswordEncoder passwordEncoder,
@@ -45,12 +30,7 @@ public class DataSeeder implements CommandLineRunner {
 		this.adminPassword = adminPassword;
 	}
 
-	/**
-	 * Metodo ejecutado automaticamente al iniciar Spring Boot.
-	 *
-	 * @param args argumentos de inicio de la aplicacion.
-	 */
-	@Override // Implementa el metodo requerido por CommandLineRunner.
+	@Override
 	public void run(String... args) {
 		if (adminPassword == null || adminPassword.isBlank()) {
 			System.out.println("No se creo el admin inicial: falta configurar APP_ADMIN_PASSWORD.");

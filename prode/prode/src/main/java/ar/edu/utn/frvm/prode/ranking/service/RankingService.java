@@ -13,50 +13,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Service del ranking global.
- *
- * Construye la tabla de posiciones sumando los puntos que cada usuario obtuvo en
- * sus pronosticos. El calculo se hace en memoria dentro del service, que para el
- * tamano de este TPI es claro y suficiente.
- *
- * Nota de rendimiento: recorrer todos los pronosticos y acceder al usuario de
- * cada uno puede generar consultas extra por la relacion LAZY (problema N+1).
- * Para un proyecto mas grande se podria reemplazar por una consulta agregada con
- * @Query (GROUP BY user). Se elige la version clara en service por legibilidad.
- */
-@Service // Spring registra esta clase como service de dominio.
+@Service
 public class RankingService {
-
 	private final PredictionRepository predictionRepository;
 
-	/**
-	 * Constructor con el repositorio de pronosticos.
-	 *
-	 * @param predictionRepository repositorio usado para leer todos los pronosticos.
-	 */
 	public RankingService(PredictionRepository predictionRepository) {
 		this.predictionRepository = predictionRepository;
 	}
 
-	/**
-	 * Calcula el ranking global ordenado.
-	 *
-	 * Pasos:
-	 * 1. Trae todos los pronosticos.
-	 * 2. Los agrupa por usuario acumulando puntos, aciertos exactos y cantidad.
-	 * 3. Ordena por puntos (desc), luego aciertos exactos (desc) y luego username (asc).
-	 * 4. Asigna posiciones secuenciales empezando en 1.
-	 *
-	 * Si no hay pronosticos, devuelve una lista vacia (nunca un error).
-	 *
-	 * @return lista ordenada de filas del ranking.
-	 */
-	@Transactional(readOnly = true) // Solo lee datos; no modifica nada en la base.
+	@Transactional(readOnly = true)
 	public List<RankingResponse> getGlobalRanking() {
 		List<Prediction> predictions = predictionRepository.findAll();
 
-		// Se usa LinkedHashMap para acumular por usuario manteniendo un orden de insercion estable.
 		Map<Long, UserScoreAccumulator> accumulatorByUser = new LinkedHashMap<>();
 
 		for (Prediction prediction : predictions) {
@@ -68,17 +36,15 @@ public class RankingService {
 			accumulator.add(prediction);
 		}
 
-		// Reglas de desempate del ranking, en orden de prioridad.
 		Comparator<UserScoreAccumulator> rankingOrder = Comparator
-				.comparingInt(UserScoreAccumulator::getTotalPoints).reversed()                      // 1) mas puntos primero.
-				.thenComparing(Comparator.comparingLong(UserScoreAccumulator::getExactHits).reversed()) // 2) mas aciertos exactos primero.
-				.thenComparing(UserScoreAccumulator::getUsername);                                  // 3) username alfabetico como desempate estable.
+				.comparingInt(UserScoreAccumulator::getTotalPoints).reversed()
+				.thenComparing(Comparator.comparingLong(UserScoreAccumulator::getExactHits).reversed())
+				.thenComparing(UserScoreAccumulator::getUsername);
 
 		List<UserScoreAccumulator> ordered = accumulatorByUser.values().stream()
 				.sorted(rankingOrder)
 				.toList();
 
-		// Se asignan posiciones secuenciales (1, 2, 3, ...) sobre la lista ya ordenada.
 		List<RankingResponse> ranking = new ArrayList<>();
 		int position = 1;
 		for (UserScoreAccumulator accumulator : ordered) {
@@ -96,15 +62,7 @@ public class RankingService {
 		return ranking;
 	}
 
-	/**
-	 * Acumulador interno para sumar las estadisticas de un usuario mientras se
-	 * recorren sus pronosticos.
-	 *
-	 * Es una clase auxiliar privada porque solo tiene sentido dentro del calculo
-	 * del ranking; no es parte del modelo de dominio.
-	 */
 	private static final class UserScoreAccumulator {
-
 		private final Long userId;
 		private final String username;
 		private int totalPoints;
@@ -116,11 +74,6 @@ public class RankingService {
 			this.username = username;
 		}
 
-		/**
-		 * Suma al acumulador los datos de un pronostico del usuario.
-		 *
-		 * @param prediction pronostico a contabilizar.
-		 */
 		private void add(Prediction prediction) {
 			this.totalPoints += prediction.getPoints();
 			if (Boolean.TRUE.equals(prediction.getExactHit())) {

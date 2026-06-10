@@ -18,88 +18,46 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Controller REST para gestionar equipos.
- *
- * Expone endpoints bajo /api/teams y delega la logica de negocio en TeamService.
- */
-@RestController // Indica que esta clase recibe HTTP y responde JSON.
-@RequestMapping("/api/teams") // Prefijo comun de todos los endpoints de equipos.
+@RestController
+@RequestMapping("/api/teams")
 public class TeamController {
-
 	private final TeamService teamService;
 
-	/**
-	 * Constructor con inyeccion del service.
-	 *
-	 * @param teamService service que contiene la logica de equipos.
-	 */
 	public TeamController(TeamService teamService) {
 		this.teamService = teamService;
 	}
 
-	/**
-	 * Crea un equipo nuevo.
-	 *
-	 * Rol permitido: ADMIN.
-	 *
-	 * @param request body JSON con el nombre del equipo.
-	 * @return equipo creado como DTO de salida.
-	 */
-	@PostMapping // Atiende POST /api/teams.
-	@ResponseStatus(HttpStatus.CREATED) // Devuelve 201 Created si el equipo se crea correctamente.
-	@PreAuthorize("hasRole('ADMIN')") // Solo usuarios con autoridad ROLE_ADMIN pueden administrar equipos.
+	@PostMapping
+	@ResponseStatus(HttpStatus.CREATED)
+	@PreAuthorize("hasRole('ADMIN')")
 	public TeamResponse createTeam(
-			@Valid // Ejecuta validaciones del DTO antes de entrar al service.
-			@RequestBody TeamCreateRequest request // Convierte el JSON recibido en TeamCreateRequest.
+			@Valid
+			@RequestBody TeamCreateRequest request
 	) {
 		return teamService.createTeam(request);
 	}
 
-	/**
-	 * Lista equipos o los filtra por nombre parcial.
-	 *
-	 * Rol permitido: cualquier usuario autenticado.
-	 *
-	 * @param name query param opcional; ejemplo: /api/teams?name=boca.
-	 * @return lista de equipos como DTOs.
-	 */
-	@GetMapping // Atiende GET /api/teams.
-	@PreAuthorize("isAuthenticated()") // Cualquier usuario con JWT valido puede consultar.
+	@GetMapping
+	@PreAuthorize("isAuthenticated()")
 	public List<TeamResponse> getTeams(
-			@RequestParam(required = false) String name // Si viene informado, se usa como filtro de busqueda.
+			@RequestParam(required = false) String name
 	) {
 		return teamService.searchTeamsByName(name);
 	}
 
-	/**
-	 * Obtiene un equipo puntual por id.
-	 *
-	 * Rol permitido: cualquier usuario autenticado.
-	 *
-	 * @param id identificador del equipo dentro de la URL.
-	 * @return equipo encontrado como DTO.
-	 */
-	@GetMapping("/{id}") // Atiende GET /api/teams/{id}.
-	@PreAuthorize("isAuthenticated()") // Requiere JWT valido, sin exigir rol ADMIN.
+	@GetMapping("/{id}")
+	@PreAuthorize("isAuthenticated()")
 	public TeamResponse getTeamById(
-			@PathVariable Long id // Toma el valor {id} de la URL.
+			@PathVariable Long id
 	) {
 		return teamService.getTeamById(id);
 	}
 
-	/**
-	 * Elimina un equipo si no esta asociado a partidos.
-	 *
-	 * Rol permitido: ADMIN.
-	 *
-	 * @param id identificador del equipo a eliminar.
-	 */
-	@DeleteMapping("/{id}") // Atiende DELETE /api/teams/{id}.
-	@ResponseStatus(HttpStatus.NO_CONTENT) // Devuelve 204 No Content cuando elimina correctamente.
-	@PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede eliminar equipos.
+	@DeleteMapping("/{id}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@PreAuthorize("hasRole('ADMIN')")
 	public void deleteTeam(
-			@PathVariable Long id // Toma el id desde la URL.
+			@PathVariable Long id
 	) {
 		teamService.deleteTeam(id);
 	}

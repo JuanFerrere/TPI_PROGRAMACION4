@@ -16,15 +16,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Tests unitarios del corazon del Prode: el calculo de puntos.
- *
- * No levanta Spring ni base de datos. Usa un mock de PredictionRepository,
- * por lo que corre rapido y aislado. Verifica la regla del TPI:
- * 3 puntos por resultado exacto, 1 por acertar la tendencia, 0 si no acierta.
- */
 class PredictionScoringServiceTest {
-
 	private final PredictionRepository predictionRepository = mock(PredictionRepository.class);
 	private final PredictionScoringService scoringService = new PredictionScoringService(predictionRepository);
 
@@ -107,14 +99,6 @@ class PredictionScoringServiceTest {
 		verify(predictionRepository, times(1)).saveAll(predictions);
 	}
 
-	/**
-	 * Crea un partido finalizado con su resultado real ya cargado.
-	 *
-	 * @param homeGoals goles reales del local.
-	 * @param awayGoals goles reales del visitante.
-	 * @param trend tendencia real del partido.
-	 * @return partido listo para puntuar, con id fijo para el mock del repositorio.
-	 */
 	private Match finishedMatch(int homeGoals, int awayGoals, ResultTrend trend) {
 		Match match = new Match();
 		match.setId(1L);
@@ -124,14 +108,6 @@ class PredictionScoringServiceTest {
 		return match;
 	}
 
-	/**
-	 * Crea un pronostico de usuario con sus goles y tendencia pronosticada.
-	 *
-	 * @param homeGoals goles pronosticados del local.
-	 * @param awayGoals goles pronosticados del visitante.
-	 * @param predictedTrend tendencia pronosticada.
-	 * @return pronostico listo para ser puntuado.
-	 */
 	private Prediction prediction(int homeGoals, int awayGoals, ResultTrend predictedTrend) {
 		Prediction prediction = new Prediction();
 		prediction.setPredictedHomeGoals(homeGoals);

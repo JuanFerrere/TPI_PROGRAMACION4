@@ -14,48 +14,30 @@ import lombok.Setter;
 
 import java.time.Instant;
 
-/**
- * Entidad JPA que representa un equipo participante del Prode.
- *
- * Un equipo puede aparecer en muchos partidos, ya sea como local o como visitante.
- */
-@Entity // Indica que Hibernate debe mapear esta clase a una tabla de PostgreSQL.
+@Entity
 @Table(
-		name = "teams", // Define que los registros se guardan en la tabla teams.
-		uniqueConstraints = @UniqueConstraint(name = "uk_teams_name", columnNames = "name") // Evita nombres duplicados en base.
+		name = "teams",
+		uniqueConstraints = @UniqueConstraint(name = "uk_teams_name", columnNames = "name")
 )
-@Getter // Lombok genera getters para que services y DTOs puedan leer los campos.
-@Setter // Lombok genera setters usados por JPA y por la logica de negocio controlada.
-@NoArgsConstructor // JPA necesita un constructor vacio para reconstruir entidades desde la base.
+@Getter
+@Setter
+@NoArgsConstructor
 public class Team {
-
-	@Id // Marca este campo como clave primaria.
-	@GeneratedValue(strategy = GenerationType.IDENTITY) // PostgreSQL genera el id automaticamente al insertar.
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(nullable = false, unique = true, length = 100) // Nombre obligatorio, unico y limitado para evitar datos demasiado largos.
+	@Column(nullable = false, unique = true, length = 100)
 	private String name;
 
-	@Column(nullable = false, updatable = false) // Se completa al crear y no debe modificarse luego.
+	@Column(nullable = false, updatable = false)
 	private Instant createdAt;
 
-	/**
-	 * Crea una entidad Team nueva antes de persistirla.
-	 *
-	 * @param name nombre visible del equipo.
-	 */
 	public Team(String name) {
 		this.name = name;
 	}
 
-	/**
-	 * Completa datos automaticos antes del primer INSERT.
-	 *
-	 * No recibe parametros.
-	 * Guarda el instante exacto de creacion en UTC usando Instant.
-	 * No devuelve nada porque modifica la entidad antes de que JPA la inserte.
-	 */
-	@PrePersist // JPA ejecuta este metodo automaticamente antes de guardar por primera vez.
+	@PrePersist
 	public void prePersist() {
 		this.createdAt = Instant.now();
 	}

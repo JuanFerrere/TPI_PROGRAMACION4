@@ -22,56 +22,29 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Controller REST para partidos.
- *
- * Expone endpoints bajo /api/matches y delega las reglas de negocio en MatchService.
- */
-@RestController // Indica que la clase recibe HTTP y responde JSON.
-@RequestMapping("/api/matches") // Prefijo comun para endpoints de partidos.
+@RestController
+@RequestMapping("/api/matches")
 public class MatchController {
-
 	private final MatchService matchService;
 
-	/**
-	 * Constructor con inyeccion del service.
-	 *
-	 * @param matchService service con logica de partidos.
-	 */
 	public MatchController(MatchService matchService) {
 		this.matchService = matchService;
 	}
 
-	/**
-	 * Crea un partido nuevo en estado POR_JUGARSE.
-	 *
-	 * Rol permitido: ADMIN.
-	 *
-	 * @param request body JSON con fecha, local, visitante y startTime.
-	 * @return partido creado como DTO.
-	 */
-	@PostMapping // Atiende POST /api/matches.
-	@ResponseStatus(HttpStatus.CREATED) // Devuelve 201 Created al crear.
-	@PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede crear partidos.
+	@PostMapping
+	@ResponseStatus(HttpStatus.CREATED)
+	@PreAuthorize("hasRole('ADMIN')")
 	public MatchResponse createMatch(
-			@Valid // Valida ids obligatorios y startTime obligatorio.
-			@RequestBody MatchCreateRequest request // Convierte el JSON a DTO de entrada.
+			@Valid
+			@RequestBody MatchCreateRequest request
 	) {
 		return matchService.createMatch(request);
 	}
 
-	/**
-	 * Lista partidos ordenados por startTime ascendente.
-	 *
-	 * Rol permitido: cualquier usuario autenticado.
-	 *
-	 * @param matchDayId query param opcional; si viene, filtra por fecha.
-	 * @return lista de partidos como DTOs.
-	 */
-	@GetMapping // Atiende GET /api/matches.
-	@PreAuthorize("isAuthenticated()") // Requiere JWT valido, sin exigir ADMIN.
+	@GetMapping
+	@PreAuthorize("isAuthenticated()")
 	public List<MatchResponse> getMatches(
-			@RequestParam(required = false) Long matchDayId // Ejemplo: /api/matches?matchDayId=1.
+			@RequestParam(required = false) Long matchDayId
 	) {
 		if (matchDayId == null) {
 			return matchService.getAllMatches();
@@ -79,90 +52,45 @@ public class MatchController {
 		return matchService.getMatchesByMatchDay(matchDayId);
 	}
 
-	/**
-	 * Obtiene un partido por id.
-	 *
-	 * Rol permitido: cualquier usuario autenticado.
-	 *
-	 * @param id identificador del partido.
-	 * @return partido encontrado como DTO.
-	 */
-	@GetMapping("/{id}") // Atiende GET /api/matches/{id}.
-	@PreAuthorize("isAuthenticated()") // Cualquier usuario con JWT valido puede consultar.
+	@GetMapping("/{id}")
+	@PreAuthorize("isAuthenticated()")
 	public MatchResponse getMatchById(
-			@PathVariable Long id // Toma el id desde la URL.
+			@PathVariable Long id
 	) {
 		return matchService.getMatchById(id);
 	}
 
-	/**
-	 * Modifica un partido si todavia esta POR_JUGARSE.
-	 *
-	 * Rol permitido: ADMIN.
-	 *
-	 * @param id identificador del partido.
-	 * @param request body JSON con nuevo local, visitante y horario.
-	 * @return partido actualizado como DTO.
-	 */
-	@PutMapping("/{id}") // Atiende PUT /api/matches/{id}.
-	@PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede modificar partidos.
+	@PutMapping("/{id}")
+	@PreAuthorize("hasRole('ADMIN')")
 	public MatchResponse updateMatch(
 			@PathVariable Long id,
-			@Valid // Valida que ids y horario esten presentes.
+			@Valid
 			@RequestBody MatchUpdateRequest request
 	) {
 		return matchService.updateMatch(id, request);
 	}
 
-	/**
-	 * Inicia un partido cambiando su estado a EN_JUEGO.
-	 *
-	 * Rol permitido: ADMIN.
-	 *
-	 * @param id identificador del partido.
-	 * @return partido iniciado como DTO.
-	 */
-	@PatchMapping("/{id}/start") // Atiende PATCH /api/matches/{id}/start.
-	@PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede iniciar partidos.
+	@PatchMapping("/{id}/start")
+	@PreAuthorize("hasRole('ADMIN')")
 	public MatchResponse startMatch(
 			@PathVariable Long id
 	) {
 		return matchService.startMatch(id);
 	}
 
-	/**
-	 * Carga el resultado real de un partido EN_JUEGO y lo finaliza.
-	 *
-	 * Este endpoint cierra el partido y dispara el calculo automatico de puntos de
-	 * todos los pronosticos asociados. El cliente solo envia los goles reales; el
-	 * backend calcula tendencia, puntos y nuevo estado de la fecha.
-	 *
-	 * Rol permitido: ADMIN.
-	 *
-	 * @param id identificador del partido.
-	 * @param request body JSON con homeGoals y awayGoals reales.
-	 * @return partido finalizado con su resultado como DTO.
-	 */
-	@PatchMapping("/{id}/result") // Atiende PATCH /api/matches/{id}/result.
-	@PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede cargar resultados.
+	@PatchMapping("/{id}/result")
+	@PreAuthorize("hasRole('ADMIN')")
 	public MatchResponse loadResult(
 			@PathVariable Long id,
-			@Valid // Valida que los goles esten presentes y no sean negativos.
+			@Valid
 			@RequestBody MatchResultRequest request
 	) {
 		return matchService.loadResult(id, request);
 	}
 
-	/**
-	 * Elimina un partido si todavia esta POR_JUGARSE.
-	 *
-	 * Rol permitido: ADMIN.
-	 *
-	 * @param id identificador del partido a eliminar.
-	 */
-	@DeleteMapping("/{id}") // Atiende DELETE /api/matches/{id}.
-	@ResponseStatus(HttpStatus.NO_CONTENT) // Devuelve 204 al eliminar correctamente.
-	@PreAuthorize("hasRole('ADMIN')") // Solo ADMIN puede eliminar partidos.
+	@DeleteMapping("/{id}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@PreAuthorize("hasRole('ADMIN')")
 	public void deleteMatch(
 			@PathVariable Long id
 	) {

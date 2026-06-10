@@ -21,28 +21,14 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
-/**
- * Service de pronosticos.
- *
- * Centraliza las reglas de negocio de Etapa 4 para que el controller solo
- * reciba HTTP y delegue decisiones importantes.
- */
 @Service
 public class PredictionService {
-
 	private static final long PREDICTION_LOCK_MINUTES = 30;
 
 	private final PredictionRepository predictionRepository;
 	private final UserRepository userRepository;
 	private final MatchRepository matchRepository;
 
-	/**
-	 * Constructor con repositorios necesarios.
-	 *
-	 * @param predictionRepository repositorio para consultar y guardar pronosticos.
-	 * @param userRepository repositorio para resolver el usuario autenticado.
-	 * @param matchRepository repositorio para validar partidos existentes.
-	 */
 	public PredictionService(
 			PredictionRepository predictionRepository,
 			UserRepository userRepository,
@@ -53,17 +39,6 @@ public class PredictionService {
 		this.matchRepository = matchRepository;
 	}
 
-	/**
-	 * Crea o modifica el pronostico del usuario autenticado para un partido.
-	 *
-	 * Upsert significa: si el pronostico ya existe, se actualiza; si no existe,
-	 * se crea. Esto evita duplicados y respeta la restriccion unica user + match.
-	 *
-	 * @param matchId id del partido a pronosticar.
-	 * @param request goles pronosticados por el cliente.
-	 * @param authentication usuario autenticado que llega desde Spring Security.
-	 * @return pronostico creado o actualizado.
-	 */
 	@Transactional
 	public PredictionResponse upsertPrediction(
 			Long matchId,
@@ -94,13 +69,6 @@ public class PredictionService {
 		return toResponse(savedPrediction);
 	}
 
-	/**
-	 * Lista los pronosticos del usuario autenticado.
-	 *
-	 * @param authentication usuario autenticado.
-	 * @param optionalStatus filtro opcional por estado del partido.
-	 * @return lista de pronosticos propios.
-	 */
 	@Transactional(readOnly = true)
 	public List<PredictionResponse> getMyPredictions(
 			Authentication authentication,
@@ -123,16 +91,6 @@ public class PredictionService {
 				.toList();
 	}
 
-	/**
-	 * Devuelve los pronosticos de un partido.
-	 *
-	 * Regla de privacidad: los pronosticos de otros usuarios solo se pueden ver
-	 * cuando ya cerro el periodo de carga. Antes de ese cierre, revelar
-	 * pronosticos ajenos afectaria la integridad del Prode.
-	 *
-	 * @param matchId id del partido.
-	 * @return lista de pronosticos del partido si ya cerro la carga.
-	 */
 	@Transactional(readOnly = true)
 	public List<PredictionResponse> getPredictionsByMatch(Long matchId) {
 		Match match = getMatchById(matchId);
@@ -144,48 +102,21 @@ public class PredictionService {
 				.toList();
 	}
 
-	/**
-	 * Valida que el partido todavia pueda recibir pronosticos.
-	 *
-	 * Solo se puede pronosticar un partido que todavia esta POR_JUGARSE. Si ya
-	 * esta EN_JUEGO o FINALIZADO, el pronostico llegaria tarde.
-	 *
-	 * @param match partido a validar.
-	 */
 	private void validateMatchCanBePredicted(Match match) {
 		if (match.getStatus() != MatchStatus.POR_JUGARSE) {
 			throw new BusinessRuleException("Solo se pueden pronosticar partidos que estan POR_JUGARSE");
 		}
 	}
 
-	/**
-	 * Valida la ventana de carga de pronosticos.
-	 *
-	 * La hora actual se toma del servidor con Instant.now(). No se confia en una
-	 * fecha enviada por el cliente, porque el cliente podria manipularla. La hora
-	 * limite es startTime - 30 minutos. Si la hora actual es igual o posterior a
-	 * esa hora limite, se rechaza la creacion o modificacion.
-	 *
-	 * @param match partido a validar.
-	 */
 	private void validatePredictionWindow(Match match) {
 		Instant lockTime = getPredictionLockTime(match);
 		Instant serverNow = Instant.now();
 
-		// Regla critica: desde 30 minutos antes del partido ya no se puede modificar el pronostico.
 		if (!serverNow.isBefore(lockTime)) {
 			throw new BusinessRuleException("No se puede crear o modificar el pronostico porque el periodo de carga ya esta bloqueado");
 		}
 	}
 
-	/**
-	 * Valida si los pronosticos de otros usuarios ya pueden mostrarse.
-	 *
-	 * Se permite verlos cuando la hora actual del servidor es igual o posterior
-	 * al cierre de carga. Antes de eso, se protegen para evitar ventaja deportiva.
-	 *
-	 * @param match partido consultado.
-	 */
 	private void validatePredictionsAreVisible(Match match) {
 		Instant lockTime = getPredictionLockTime(match);
 		Instant serverNow = Instant.now();
@@ -195,23 +126,10 @@ public class PredictionService {
 		}
 	}
 
-	/**
-	 * Calcula la hora de cierre de carga de pronosticos.
-	 *
-	 * @param match partido consultado.
-	 * @return instante UTC que representa startTime menos 30 minutos.
-	 */
 	private Instant getPredictionLockTime(Match match) {
 		return match.getStartTime().minus(PREDICTION_LOCK_MINUTES, ChronoUnit.MINUTES);
 	}
 
-	/**
-	 * Calcula la tendencia del pronostico a partir de los goles cargados.
-	 *
-	 * @param homeGoals goles pronosticados del local.
-	 * @param awayGoals goles pronosticados del visitante.
-	 * @return LOCAL si gana local, VISITANTE si gana visitante o EMPATE si son iguales.
-	 */
 	private ResultTrend calculateTrend(int homeGoals, int awayGoals) {
 		if (homeGoals > awayGoals) {
 			return ResultTrend.LOCAL;
@@ -224,15 +142,6 @@ public class PredictionService {
 		return ResultTrend.EMPATE;
 	}
 
-	/**
-	 * Obtiene el usuario autenticado a partir de Spring Security.
-	 *
-	 * El filtro JWT deja cargado el username en Authentication. Con ese username
-	 * se consulta la base para obtener la entidad User real.
-	 *
-	 * @param authentication datos de autenticacion de la request.
-	 * @return usuario autenticado.
-	 */
 	private User getAuthenticatedUser(Authentication authentication) {
 		if (authentication == null || !authentication.isAuthenticated()) {
 			throw new BadCredentialsException("Usuario no autenticado");
@@ -243,25 +152,11 @@ public class PredictionService {
 				.orElseThrow(() -> new ResourceNotFoundException("Usuario autenticado no encontrado"));
 	}
 
-	/**
-	 * Busca un partido por id.
-	 *
-	 * @param matchId id del partido.
-	 * @return partido encontrado.
-	 */
 	private Match getMatchById(Long matchId) {
 		return matchRepository.findById(matchId)
 				.orElseThrow(() -> new ResourceNotFoundException("Partido no encontrado"));
 	}
 
-	/**
-	 * Convierte una entidad Prediction en un DTO seguro para responder.
-	 *
-	 * No expone password ni datos sensibles del usuario.
-	 *
-	 * @param prediction entidad JPA interna.
-	 * @return DTO de salida.
-	 */
 	private PredictionResponse toResponse(Prediction prediction) {
 		Match match = prediction.getMatch();
 

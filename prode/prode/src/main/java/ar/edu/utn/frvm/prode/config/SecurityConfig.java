@@ -27,26 +27,13 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Configuracion principal de seguridad para la API.
- *
- * Esta clase reemplaza la configuracion temporal de Etapa 1 y prepara seguridad stateless con JWT.
- */
-@Configuration // Indica que esta clase declara beans de configuracion para Spring.
-@EnableMethodSecurity // Habilita @PreAuthorize para proteger endpoints por rol sin cambiar el filtro JWT.
+@Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
-
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
 	private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 	private final ObjectMapper objectMapper;
 
-	/**
-	 * Constructor con dependencias de seguridad.
-	 *
-	 * @param jwtAuthenticationFilter filtro que lee y valida JWT.
-	 * @param jwtAuthenticationEntryPoint componente que responde 401 ante falta de autenticacion.
-	 * @param objectMapper herramienta para escribir respuestas JSON de seguridad.
-	 */
 	public SecurityConfig(
 			JwtAuthenticationFilter jwtAuthenticationFilter,
 			JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
@@ -57,25 +44,19 @@ public class SecurityConfig {
 		this.objectMapper = objectMapper;
 	}
 
-	/**
-	 * Define las reglas de seguridad HTTP de la API.
-	 *
-	 * @param http objeto de Spring Security usado para configurar filtros y permisos.
-	 * @return SecurityFilterChain con la configuracion final.
-	 */
-	@Bean // Registra la cadena de filtros de seguridad como bean de Spring.
+	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return http
 				.cors(Customizer.withDefaults())
-				.csrf(AbstractHttpConfigurer::disable) // Desactiva CSRF porque esta API usa JWT y no sesiones web con cookies.
-				.formLogin(AbstractHttpConfigurer::disable) // Desactiva el formulario de login HTML propio de Spring Security.
-				.httpBasic(AbstractHttpConfigurer::disable) // Desactiva autenticacion Basic para usar JWT por header Authorization.
+				.csrf(AbstractHttpConfigurer::disable)
+				.formLogin(AbstractHttpConfigurer::disable)
+				.httpBasic(AbstractHttpConfigurer::disable)
 				.sessionManagement(session -> session
-						.sessionCreationPolicy(SessionCreationPolicy.STATELESS) // No guarda sesion en servidor: cada request debe traer token.
+						.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
 				)
 				.exceptionHandling(exception -> exception
-						.authenticationEntryPoint(jwtAuthenticationEntryPoint) // Devuelve 401 JSON cuando falta autenticacion.
-						.accessDeniedHandler((request, response, accessDeniedException) -> { // Devuelve 403 JSON cuando el usuario no tiene el rol requerido.
+						.authenticationEntryPoint(jwtAuthenticationEntryPoint)
+						.accessDeniedHandler((request, response, accessDeniedException) -> {
 							ErrorResponse errorResponse = new ErrorResponse(
 									Instant.now(),
 									HttpStatus.FORBIDDEN.value(),
@@ -90,13 +71,13 @@ public class SecurityConfig {
 						})
 				)
 				.authorizeHttpRequests(authorization -> authorization
-						.requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll() // Registro publico.
-						.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll() // Login publico.
-						.requestMatchers(HttpMethod.GET, "/api/health").permitAll() // Health check publico para pruebas.
-						.anyRequest().authenticated() // Todo lo demas requiere JWT valido.
+						.requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+						.anyRequest().authenticated()
 				)
-				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class) // Ejecuta nuestro filtro JWT antes del login tradicional.
-				.build(); // Construye la configuracion final.
+				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+				.build();
 	}
 
 	@Bean
@@ -114,27 +95,12 @@ public class SecurityConfig {
 		return source;
 	}
 
-	/**
-	 * Define el algoritmo para hashear contrasenas.
-	 *
-	 * BCrypt agrega sal y costo computacional para no guardar contrasenas en texto plano.
-	 *
-	 * @return PasswordEncoder basado en BCrypt.
-	 */
-	@Bean // Permite inyectar PasswordEncoder en services y seeders.
+	@Bean
 	public PasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();
 	}
 
-	/**
-	 * Expone el AuthenticationManager de Spring Security.
-	 *
-	 * AuthenticationManager valida credenciales usando UserDetailsService y PasswordEncoder.
-	 *
-	 * @param authenticationConfiguration configuracion interna de autenticacion.
-	 * @return AuthenticationManager listo para usar en AuthService.
-	 */
-	@Bean // Permite inyectar AuthenticationManager en AuthService.
+	@Bean
 	public AuthenticationManager authenticationManager(
 			AuthenticationConfiguration authenticationConfiguration
 	) throws Exception {
