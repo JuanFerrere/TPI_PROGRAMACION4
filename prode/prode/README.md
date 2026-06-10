@@ -1221,4 +1221,4 @@ Mensaje: `Grupo no encontrado`.
 - La logica de puntuacion esta aislada en `PredictionScoringService`.
 - La estructura de grupos permite agregar en el futuro: transferencia de owner, eliminacion de grupo, invitaciones por link o por email.
 
-No se implementaron todavia grupos privados, ranking por grupo ni frontend.
+Quedan como mejoras futuras: transferencia de propiedad de grupo, eliminacion de grupo, invitaciones por link o email, y paginacion de rankings. El frontend en React ya esta en desarrollo como etapa aparte.
