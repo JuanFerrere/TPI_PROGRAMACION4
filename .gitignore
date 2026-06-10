@@ -1,0 +1,25 @@
+# Variables de entorno (no subir secretos)
+.env
+*.env
+!.env.example
+
+# Build / artefactos
+target/
+build/
+*.zip
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Editores
+.vscode/
+
+# Node / frontend
+node_modules/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db

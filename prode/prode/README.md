@@ -2,7 +2,7 @@
 
 API REST backend para una plataforma de pronosticos deportivos tipo Prode.
 
-El proyecto esta desarrollado como trabajo practico de Programacion 4. Actualmente llega hasta la **Etapa 4: sistema de pronosticos**.
+El proyecto esta desarrollado como trabajo practico de Programacion 4. Actualmente llega hasta la **Etapa 6: grupos privados y ranking por grupo**.
 
 ## Integrantes
 
@@ -956,11 +956,269 @@ Solucion: crear `.env` en la raiz del proyecto o configurar variables en Intelli
 
 "En esta etapa cerramos el ciclo de vida del partido. El ADMIN inicia el partido y luego carga el resultado real enviando solo los goles; el backend nunca confia en calculos del cliente. Al cargar el resultado, el sistema calcula la tendencia real, finaliza el partido, recalcula los puntos de todos los pronosticos asociados (3 por resultado exacto, 1 por tendencia, 0 si no acierta), actualiza el acierto exacto y recalcula el estado de la fecha. Con esos puntos acumulados se arma el ranking global, que cualquier usuario autenticado puede consultar ordenado por puntos, aciertos exactos y nombre."
 
-## Que queda preparado para Etapa 6
+## Etapa 6 - Grupos privados y ranking por grupo
+
+Los grupos privados permiten que un conjunto cerrado de usuarios compita entre si
+dentro de un espacio propio, separado del ranking global. Cada grupo tiene un codigo
+de invitacion unico generado por el backend: compartir ese codigo es la unica forma
+de unirse.
+
+### Que es un grupo privado
+
+Un grupo privado agrupa a usuarios que se conocen (amigos, companeros de facultad,
+familia). Solo los miembros del grupo pueden ver su detalle y su ranking. El codigo
+de invitacion es una cadena de 8 caracteres hexadecimales en mayusculas, generada
+con UUID y verificada como unica antes de guardarse. Ejemplo: `3F2504E0`.
+
+### Endpoints de grupos
+
+Todos requieren autenticacion JWT valida. El prefijo comun es `/api/groups`.
+
+**Autenticados (USER y ADMIN):**
+
+| Metodo   | Endpoint                          | Descripcion                                   |
+|----------|-----------------------------------|-----------------------------------------------|
+| POST     | /api/groups                       | Crear grupo privado                           |
+| POST     | /api/groups/join                  | Unirse a grupo por codigo de invitacion       |
+| GET      | /api/groups/me                    | Listar mis grupos                             |
+| GET      | /api/groups/{groupId}             | Ver detalle de un grupo (solo miembros)       |
+| DELETE   | /api/groups/{groupId}/members/me  | Salir de un grupo                             |
+| GET      | /api/groups/{groupId}/ranking     | Ver ranking del grupo (solo miembros)         |
+
+### Como crear un grupo
+
+```http
+POST http://localhost:8080/api/groups
+Authorization: Bearer TOKEN
+Content-Type: application/json
+
+{
+  "name": "Amigos UTN"
+}
+```
+
+Respuesta `201 Created`:
+
+```json
+{
+  "id": 1,
+  "name": "Amigos UTN",
+  "inviteCode": "3F2504E0",
+  "ownerId": 2,
+  "ownerUsername": "juan",
+  "membersCount": 1,
+  "createdAt": "2026-06-09T18:00:00Z"
+}
+```
+
+El owner queda automaticamente como primer miembro del grupo.
+
+### Como se genera el codigo de invitacion
+
+El backend toma los primeros 8 caracteres del UUID generado (sin guiones), los
+convierte a mayusculas y verifica que no exista en la base antes de guardar.
+El cliente no puede elegir ni modificar el codigo.
+
+### Como unirse a un grupo
+
+```http
+POST http://localhost:8080/api/groups/join
+Authorization: Bearer TOKEN
+Content-Type: application/json
+
+{
+  "inviteCode": "3F2504E0"
+}
+```
+
+Respuesta `200 OK` con el grupo al que se unio. Si el usuario ya pertenece al
+grupo o el codigo no existe, se devuelve un error claro.
+
+### Como listar mis grupos
+
+```http
+GET http://localhost:8080/api/groups/me
+Authorization: Bearer TOKEN
+```
+
+Devuelve lista de todos los grupos donde el usuario autenticado es miembro.
+Si no pertenece a ninguno, devuelve lista vacia (no es un error).
+
+### Como ver el detalle de un grupo
+
+```http
+GET http://localhost:8080/api/groups/{groupId}
+Authorization: Bearer TOKEN
+```
+
+Solo accesible para miembros del grupo. Devuelve nombre, codigo, owner, lista
+completa de miembros con su username y fecha de ingreso.
+
+```json
+{
+  "id": 1,
+  "name": "Amigos UTN",
+  "inviteCode": "3F2504E0",
+  "ownerId": 2,
+  "ownerUsername": "juan",
+  "membersCount": 2,
+  "members": [
+    { "userId": 2, "username": "juan", "joinedAt": "2026-06-09T18:00:00Z" },
+    { "userId": 3, "username": "benja", "joinedAt": "2026-06-09T18:05:00Z" }
+  ],
+  "createdAt": "2026-06-09T18:00:00Z"
+}
+```
+
+### Como salir de un grupo
+
+```http
+DELETE http://localhost:8080/api/groups/{groupId}/members/me
+Authorization: Bearer TOKEN
+```
+
+Devuelve `204 No Content` si salio correctamente. El owner no puede abandonar
+su propio grupo (simplificacion del TPI; la transferencia de propiedad queda
+como mejora futura).
+
+### Como consultar el ranking por grupo
+
+```http
+GET http://localhost:8080/api/groups/{groupId}/ranking
+Authorization: Bearer TOKEN
+```
+
+Solo accesible para miembros del grupo. Devuelve el ranking con solo los
+usuarios del grupo. Los puntos provienen de los pronosticos ya calculados en
+Etapa 5, no se recalculan. Todos los miembros aparecen aunque no hayan
+pronosticado (con 0 puntos).
+
+```json
+[
+  { "position": 1, "userId": 2, "username": "juan",  "totalPoints": 7, "exactHits": 2, "predictionsCount": 4 },
+  { "position": 2, "userId": 3, "username": "benja", "totalPoints": 3, "exactHits": 1, "predictionsCount": 4 }
+]
+```
+
+Orden: puntos descendente, luego aciertos exactos descendente, luego username
+alfabetico como desempate estable.
+
+### Validaciones y reglas de negocio
+
+- El nombre del grupo no puede estar vacio ni superar 100 caracteres.
+- El codigo de invitacion no puede estar vacio ni superar 50 caracteres.
+- Un usuario no puede unirse dos veces al mismo grupo.
+- Solo miembros pueden ver el detalle y el ranking del grupo.
+- El owner no puede abandonar su propio grupo.
+- Un usuario no miembro recibe error si intenta ver datos del grupo.
+
+### Pruebas en Insomnia para Etapa 6
+
+Flujo recomendado:
+
+1. Login con juan (o el admin si es que juan es admin, si no registrar usuario juan).
+2. Crear grupo:
+
+```http
+POST /api/groups
+{ "name": "Amigos UTN" }
+```
+
+3. Copiar el `inviteCode` de la respuesta.
+4. Registrar o loguearse con otro usuario, por ejemplo benja.
+5. Benja se une al grupo:
+
+```http
+POST /api/groups/join
+{ "inviteCode": "CODIGO_COPIADO" }
+```
+
+6. Verificar que ambos tienen pronosticos con puntos calculados (Etapa 5).
+7. Consultar ranking global:
+
+```http
+GET /api/rankings/global
+```
+
+8. Consultar ranking del grupo:
+
+```http
+GET /api/groups/{groupId}/ranking
+```
+
+Verificar que solo aparecen juan y benja (no otros usuarios del sistema).
+
+9. Con un tercer usuario que NO sea miembro, intentar ver el detalle:
+
+```http
+GET /api/groups/{groupId}
+```
+
+Esperado: `400 Bad Request` con mensaje `No tenes permisos para acceder a este grupo`.
+
+10. Intentar que benja se una dos veces:
+
+```http
+POST /api/groups/join
+{ "inviteCode": "CODIGO_COPIADO" }
+```
+
+Esperado: `400 Bad Request` con mensaje `El usuario ya pertenece a este grupo`.
+
+11. Intentar que juan (owner) salga del grupo:
+
+```http
+DELETE /api/groups/{groupId}/members/me
+(logueado como juan)
+```
+
+Esperado: `400 Bad Request` con mensaje `El creador del grupo no puede abandonar el grupo`.
+
+12. Que benja salga del grupo:
+
+```http
+DELETE /api/groups/{groupId}/members/me
+(logueado como benja)
+```
+
+Esperado: `204 No Content`.
+
+### Errores comunes de Etapa 6
+
+`400 Bad Request` al unirse
+
+Causa posible: el codigo de invitacion no existe o el usuario ya pertenece al grupo.
+
+Mensaje: `No existe un grupo con el codigo de invitacion indicado` o `El usuario ya pertenece a este grupo`.
+
+`400 Bad Request` al ver detalle o ranking
+
+Causa posible: el usuario no es miembro del grupo.
+
+Mensaje: `No tenes permisos para acceder a este grupo` o `No tenes permisos para ver el ranking de este grupo`.
+
+`400 Bad Request` al intentar salir siendo owner
+
+Causa posible: el usuario que intenta salir es el creador del grupo.
+
+Mensaje: `El creador del grupo no puede abandonar el grupo`.
+
+`404 Not Found`
+
+Causa: el groupId no existe en la base de datos.
+
+Mensaje: `Grupo no encontrado`.
+
+## Explicacion para defensa oral
+
+"En Etapa 6 implementamos grupos privados. Un usuario crea un grupo y el backend genera un codigo de invitacion unico usando UUID. Ese codigo se comparte manualmente con otros usuarios, que lo usan para unirse. Solo los miembros del grupo pueden ver su detalle y su ranking. El ranking del grupo reutiliza los puntos ya calculados en Etapa 5 y filtra solo los miembros del grupo, por lo que refleja la competencia interna sin afectar el ranking global. El owner no puede abandonar su propio grupo para mantener la integridad del sistema dentro del alcance del TPI."
+
+## Que queda preparado para futuras mejoras
 
 - Los partidos ya tienen resultado real, tendencia y estado `FINALIZADO`.
 - Los pronosticos ya tienen `points` y `exactHit` calculados automaticamente.
-- El ranking global ya suma puntos por usuario y los ordena.
-- La logica de puntuacion esta aislada en `PredictionScoringService`, lista para reutilizarse.
+- El ranking global y por grupo ya funcionan.
+- La logica de puntuacion esta aislada en `PredictionScoringService`.
+- La estructura de grupos permite agregar en el futuro: transferencia de owner, eliminacion de grupo, invitaciones por link o por email.
 
-No se implementaron todavia grupos privados, ranking por grupo ni frontend.
+Quedan como mejoras futuras: transferencia de propiedad de grupo, eliminacion de grupo, invitaciones por link o email, y paginacion de rankings. El frontend en React ya esta en desarrollo como etapa aparte.
