@@ -41,7 +41,6 @@ function Login() {
 
       setMensaje("Inicio de sesión correcto.");
 
-      console.log("Datos del login:", data);
     } catch (error) {
       setError(error.message);
     } finally {
