@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import Badge from "../components/ui/Badge.jsx";
+import Button from "../components/ui/Button.jsx";
+import Card from "../components/ui/Card.jsx";
+import ErrorMessage from "../components/ui/ErrorMessage.jsx";
 import { registrarUsuario } from "../services/authService";
+import "../App.css";
 
 function Registro() {
   const navigate = useNavigate();
@@ -51,64 +56,83 @@ function Registro() {
   }
 
   return (
-    <main>
-      <h1>Registro</h1>
-
-      <form onSubmit={manejarSubmit}>
-        <div>
-          <label>Nombre de usuario</label>
-          <br />
-          <input
-            type="text"
-            name="username"
-            value={formulario.username}
-            onChange={manejarCambio}
-            required
-          />
+    <main className="auth-page">
+      <Card className="auth-card" padding="lg">
+        <div className="auth-header">
+          <Badge variant="amber">Nueva cuenta</Badge>
+          <h1>Crear cuenta</h1>
+          <p>Sumate al prode, armá tus pronósticos y empezá a competir.</p>
         </div>
 
-        <br />
+        <form className="auth-form" onSubmit={manejarSubmit}>
+          <div className="auth-field">
+            <label htmlFor="username">Nombre de usuario</label>
+            <input
+              autoComplete="username"
+              id="username"
+              name="username"
+              onChange={manejarCambio}
+              required
+              type="text"
+              value={formulario.username}
+            />
+          </div>
 
-        <div>
-          <label>Email</label>
-          <br />
-          <input
-            type="email"
-            name="email"
-            value={formulario.email}
-            onChange={manejarCambio}
-            required
-          />
+          <div className="auth-field">
+            <label htmlFor="email">Email</label>
+            <input
+              autoComplete="email"
+              id="email"
+              name="email"
+              onChange={manejarCambio}
+              required
+              type="email"
+              value={formulario.email}
+            />
+          </div>
+
+          <div className="auth-field">
+            <label htmlFor="password">Contraseña</label>
+            <input
+              autoComplete="new-password"
+              id="password"
+              minLength={8}
+              name="password"
+              onChange={manejarCambio}
+              required
+              type="password"
+              value={formulario.password}
+            />
+          </div>
+
+          <ErrorMessage message={error} />
+
+          {mensaje && (
+            <p className="auth-success" role="status">
+              {mensaje}
+            </p>
+          )}
+
+          <Button fullWidth isLoading={cargando} type="submit">
+            {cargando ? "Registrando..." : "Crear cuenta"}
+          </Button>
+        </form>
+
+        <div className="auth-footer">
+          <p>¿Ya tenés cuenta?</p>
+          <Button onClick={() => navigate("/login")} variant="ghost">
+            Iniciar sesión
+          </Button>
         </div>
 
-        <br />
-
-        <div>
-          <label>Contraseña</label>
-          <br />
-          <input
-            type="password"
-            name="password"
-            value={formulario.password}
-            onChange={manejarCambio}
-            required
-            minLength={8}
-          />
-        </div>
-
-        <br />
-
-        <button type="submit" disabled={cargando}>
-          {cargando ? "Registrando..." : "Registrarse"}
-        </button>
-      </form>
-
-      {mensaje && <p>{mensaje}</p>}
-      {error && <p>{error}</p>}
-
-      <br />
-
-      <button onClick={() => navigate("/")}>Volver al inicio</button>
+        <Button
+          className="auth-back-button"
+          onClick={() => navigate("/")}
+          variant="secondary"
+        >
+          Volver al inicio
+        </Button>
+      </Card>
     </main>
   );
 }
