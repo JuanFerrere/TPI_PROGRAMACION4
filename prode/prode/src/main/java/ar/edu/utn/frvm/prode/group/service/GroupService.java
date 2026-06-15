@@ -21,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -177,7 +178,11 @@ public class GroupService {
 		Comparator<UserScoreAccumulator> rankingOrder = Comparator
 				.comparingInt(UserScoreAccumulator::getTotalPoints).reversed()
 				.thenComparing(Comparator.comparingLong(UserScoreAccumulator::getExactHits).reversed())
-				.thenComparing(UserScoreAccumulator::getUsername);
+				.thenComparing(
+						UserScoreAccumulator::getEarliestPredictionCreatedAt,
+						Comparator.nullsLast(Comparator.naturalOrder())
+				)
+				.thenComparing(UserScoreAccumulator::getUserId);
 
 		List<UserScoreAccumulator> ordered = accumulatorByUser.values().stream()
 				.sorted(rankingOrder)
@@ -247,6 +252,7 @@ public class GroupService {
 		private int totalPoints;
 		private long exactHits;
 		private long predictionsCount;
+		private Instant earliestPredictionCreatedAt;
 
 		private UserScoreAccumulator(Long userId, String username) {
 			this.userId = userId;
@@ -259,6 +265,13 @@ public class GroupService {
 				this.exactHits++;
 			}
 			this.predictionsCount++;
+
+			Instant predictionCreatedAt = prediction.getCreatedAt();
+			if (predictionCreatedAt != null
+					&& (this.earliestPredictionCreatedAt == null
+					|| predictionCreatedAt.isBefore(this.earliestPredictionCreatedAt))) {
+				this.earliestPredictionCreatedAt = predictionCreatedAt;
+			}
 		}
 
 		private Long getUserId() { return userId; }
@@ -266,5 +279,6 @@ public class GroupService {
 		private int getTotalPoints() { return totalPoints; }
 		private long getExactHits() { return exactHits; }
 		private long getPredictionsCount() { return predictionsCount; }
+		private Instant getEarliestPredictionCreatedAt() { return earliestPredictionCreatedAt; }
 	}
 }

@@ -7,6 +7,7 @@ import ar.edu.utn.frvm.prode.user.entity.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -39,7 +40,11 @@ public class RankingService {
 		Comparator<UserScoreAccumulator> rankingOrder = Comparator
 				.comparingInt(UserScoreAccumulator::getTotalPoints).reversed()
 				.thenComparing(Comparator.comparingLong(UserScoreAccumulator::getExactHits).reversed())
-				.thenComparing(UserScoreAccumulator::getUsername);
+				.thenComparing(
+						UserScoreAccumulator::getEarliestPredictionCreatedAt,
+						Comparator.nullsLast(Comparator.naturalOrder())
+				)
+				.thenComparing(UserScoreAccumulator::getUserId);
 
 		List<UserScoreAccumulator> ordered = accumulatorByUser.values().stream()
 				.sorted(rankingOrder)
@@ -68,6 +73,7 @@ public class RankingService {
 		private int totalPoints;
 		private long exactHits;
 		private long predictionsCount;
+		private Instant earliestPredictionCreatedAt;
 
 		private UserScoreAccumulator(Long userId, String username) {
 			this.userId = userId;
@@ -80,6 +86,13 @@ public class RankingService {
 				this.exactHits++;
 			}
 			this.predictionsCount++;
+
+			Instant predictionCreatedAt = prediction.getCreatedAt();
+			if (predictionCreatedAt != null
+					&& (this.earliestPredictionCreatedAt == null
+					|| predictionCreatedAt.isBefore(this.earliestPredictionCreatedAt))) {
+				this.earliestPredictionCreatedAt = predictionCreatedAt;
+			}
 		}
 
 		private Long getUserId() {
@@ -100,6 +113,10 @@ public class RankingService {
 
 		private long getPredictionsCount() {
 			return predictionsCount;
+		}
+
+		private Instant getEarliestPredictionCreatedAt() {
+			return earliestPredictionCreatedAt;
 		}
 	}
 }

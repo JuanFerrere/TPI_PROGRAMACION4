@@ -252,12 +252,13 @@ El ADMIN envia solo los goles reales:
 Cuando se carga el resultado, el backend hace todo lo siguiente de forma automatica:
 
 1. Valida que el partido este `EN_JUEGO`.
-2. Calcula la tendencia real (`resultTrend`): `LOCAL`, `EMPATE` o `VISITANTE`.
-3. Guarda `homeGoals`, `awayGoals` y `resultTrend`.
-4. Cambia el partido a `FINALIZADO`.
-5. Calcula los puntos de **todos** los pronosticos del partido.
-6. Actualiza `exactHit` de cada pronostico.
-7. Recalcula el estado de la fecha contenedora.
+2. Valida que la fecha contenedora este `EN_JUEGO`.
+3. Calcula la tendencia real (`resultTrend`): `LOCAL`, `EMPATE` o `VISITANTE`.
+4. Guarda `homeGoals`, `awayGoals` y `resultTrend`.
+5. Cambia el partido a `FINALIZADO`.
+6. Calcula los puntos de **todos** los pronosticos del partido.
+7. Actualiza `exactHit` de cada pronostico.
+8. Recalcula el estado de la fecha contenedora.
 
 Importante: el cliente nunca manda la tendencia ni los puntos. El backend no confia en calculos del cliente; solo recibe los goles reales.
 
@@ -289,7 +290,7 @@ GET /api/rankings/global
 - Disponible para cualquier usuario autenticado.
 - Suma los puntos de todos los pronosticos de cada usuario.
 - Cuenta los aciertos exactos (`exactHits`) y la cantidad de pronosticos (`predictionsCount`).
-- Ordena por: mas puntos primero, luego mas aciertos exactos, luego `username` alfabetico como desempate estable.
+- Ordena por: mas puntos primero, luego mas aciertos exactos y, si persiste el empate, prioridad al usuario cuyo pronostico mas antiguo fue cargado antes.
 - Asigna la posicion (`position`) empezando en 1.
 - Si todavia no hay pronosticos, devuelve una lista vacia (no es un error).
 
@@ -321,6 +322,8 @@ Ejemplo valido para Insomnia:
 ```
 
 La `Z` significa UTC.
+
+Para defensa: el bloqueo de pronosticos se valida con la hora del servidor (`Instant.now()`), comparada contra el `startTime` persistido del partido menos 30 minutos. El backend no confia en una fecha u hora enviada por el cliente para decidir si un pronostico esta bloqueado.
 
 ## Seguridad por roles
 
@@ -360,6 +363,12 @@ Endpoints solo `ADMIN`:
 - `DELETE /api/matches/{id}`
 
 La seguridad administrativa se aplica con `@PreAuthorize("hasRole('ADMIN')")`. Los usuarios se cargan con autoridad `ROLE_ADMIN`, por eso `hasRole('ADMIN')` coincide con la configuracion real.
+
+## HTTPS en produccion
+
+Para la demo local universitaria la API se ejecuta por HTTP en `localhost` para no complicar la ejecucion en IntelliJ e Insomnia.
+
+En un ambiente productivo, la API deberia publicarse detras de HTTPS para proteger credenciales, tokens JWT y datos enviados por los usuarios. Esta configuracion queda fuera del alcance del TPI local y no se fuerza desde Spring Boot para no romper la demo.
 
 ## Formato de errores
 
@@ -835,6 +844,7 @@ Esperado:
 - `resultTrend` queda `LOCAL`.
 - `homeGoals` = 2.
 - `awayGoals` = 1.
+- La fecha contenedora estaba `EN_JUEGO` antes de aceptar el resultado y luego se recalcula automaticamente.
 
 ### 3. Verificar pronostico con puntos (USER)
 
@@ -854,7 +864,7 @@ Esperado, segun lo que haya pronosticado el usuario para un resultado real `2-1`
 GET http://localhost:8080/api/rankings/global
 ```
 
-Esperado: lista ordenada por puntos. Si no hay pronosticos, lista vacia.
+Esperado: lista ordenada por puntos descendentes, aciertos exactos descendentes y pronostico mas antiguo como tercer desempate. Si no hay pronosticos, lista vacia.
 
 ### 5. Intentar cargar resultado como USER
 
@@ -918,9 +928,9 @@ Solucion: esperar a que falten 30 minutos o menos para el inicio del partido.
 
 `400 Bad Request` al cargar resultado
 
-Causa posible: el partido no esta `EN_JUEGO` (todavia esta `POR_JUGARSE` o ya esta `FINALIZADO`) o los goles son negativos.
+Causa posible: el partido no esta `EN_JUEGO` (todavia esta `POR_JUGARSE` o ya esta `FINALIZADO`), la fecha contenedora no esta `EN_JUEGO` o los goles son negativos.
 
-Solucion: iniciar el partido con `/start` antes de cargar el resultado y enviar goles mayores o iguales a cero.
+Solucion: iniciar el partido con `/start` antes de cargar el resultado, verificar que la fecha haya quedado `EN_JUEGO` y enviar goles mayores o iguales a cero.
 
 `400 Bad Request` por fecha
 
@@ -954,7 +964,7 @@ Solucion: crear `.env` en la raiz del proyecto o configurar variables en Intelli
 
 ## Explicacion para defensa oral
 
-"En esta etapa cerramos el ciclo de vida del partido. El ADMIN inicia el partido y luego carga el resultado real enviando solo los goles; el backend nunca confia en calculos del cliente. Al cargar el resultado, el sistema calcula la tendencia real, finaliza el partido, recalcula los puntos de todos los pronosticos asociados (3 por resultado exacto, 1 por tendencia, 0 si no acierta), actualiza el acierto exacto y recalcula el estado de la fecha. Con esos puntos acumulados se arma el ranking global, que cualquier usuario autenticado puede consultar ordenado por puntos, aciertos exactos y nombre."
+"En esta etapa cerramos el ciclo de vida del partido. El ADMIN inicia el partido y luego carga el resultado real enviando solo los goles; el backend nunca confia en calculos del cliente. Al cargar el resultado, valida que el partido y su fecha esten EN_JUEGO, calcula la tendencia real, finaliza el partido, recalcula los puntos de todos los pronosticos asociados (3 por resultado exacto, 1 por tendencia, 0 si no acierta), actualiza el acierto exacto y recalcula el estado de la fecha. Con esos puntos acumulados se arma el ranking global, que cualquier usuario autenticado puede consultar ordenado por puntos, aciertos exactos y pronostico mas antiguo."
 
 ## Etapa 6 - Grupos privados y ranking por grupo
 
@@ -1100,8 +1110,8 @@ pronosticado (con 0 puntos).
 ]
 ```
 
-Orden: puntos descendente, luego aciertos exactos descendente, luego username
-alfabetico como desempate estable.
+Orden: puntos descendente, luego aciertos exactos descendente y, si persiste el
+empate, prioridad al usuario cuyo pronostico mas antiguo fue cargado antes.
 
 ### Validaciones y reglas de negocio
 
@@ -1211,7 +1221,7 @@ Mensaje: `Grupo no encontrado`.
 
 ## Explicacion para defensa oral
 
-"En Etapa 6 implementamos grupos privados. Un usuario crea un grupo y el backend genera un codigo de invitacion unico usando UUID. Ese codigo se comparte manualmente con otros usuarios, que lo usan para unirse. Solo los miembros del grupo pueden ver su detalle y su ranking. El ranking del grupo reutiliza los puntos ya calculados en Etapa 5 y filtra solo los miembros del grupo, por lo que refleja la competencia interna sin afectar el ranking global. El owner no puede abandonar su propio grupo para mantener la integridad del sistema dentro del alcance del TPI."
+"En Etapa 6 implementamos grupos privados. Un usuario crea un grupo y el backend genera un codigo de invitacion unico usando UUID. Ese codigo se comparte manualmente con otros usuarios, que lo usan para unirse. Solo los miembros del grupo pueden ver su detalle y su ranking. El ranking del grupo reutiliza los puntos ya calculados en Etapa 5, filtra solo los miembros del grupo y aplica las mismas reglas del ranking global: puntos, aciertos exactos y pronostico mas antiguo. El owner no puede abandonar su propio grupo para mantener la integridad del sistema dentro del alcance del TPI."
 
 ## Que queda preparado para futuras mejoras
 
@@ -1220,5 +1230,6 @@ Mensaje: `Grupo no encontrado`.
 - El ranking global y por grupo ya funcionan.
 - La logica de puntuacion esta aislada en `PredictionScoringService`.
 - La estructura de grupos permite agregar en el futuro: transferencia de owner, eliminacion de grupo, invitaciones por link o por email.
+- Multiples torneos o una entidad `Tournament` quedan como mejora futura fuera del alcance de la consigna actual.
 
-Quedan como mejoras futuras: transferencia de propiedad de grupo, eliminacion de grupo, invitaciones por link o email, y paginacion de rankings. El frontend en React ya esta en desarrollo como etapa aparte.
+Quedan como mejoras futuras: transferencia de propiedad de grupo, eliminacion de grupo, invitaciones por link o email, multiples torneos, y paginacion de rankings. El frontend en React ya esta en desarrollo como etapa aparte.

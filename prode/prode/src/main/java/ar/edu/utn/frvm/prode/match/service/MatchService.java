@@ -120,6 +120,9 @@ public class MatchService {
 		if (match.getStatus() != MatchStatus.EN_JUEGO) {
 			throw new BusinessRuleException("Solo se pueden cargar resultados de partidos que estan EN_JUEGO");
 		}
+		if (match.getMatchDay().getStatus() != MatchDayStatus.EN_JUEGO) {
+			throw new BusinessRuleException("Solo se pueden cargar resultados cuando la fecha esta EN_JUEGO");
+		}
 
 		ResultTrend resultTrend = calculateResultTrend(request.homeGoals(), request.awayGoals());
 
