@@ -6,6 +6,7 @@ import Registro from "./pages/Registro.jsx";
 import Login from "./pages/Login.jsx";
 import MatchesPage from "./pages/MatchesPage.jsx";
 import UserDashboard from "./pages/UserDashboard.jsx";
+import RankingPage from "./pages/RankingPage.jsx";
 import "./index.css";
 
 createRoot(document.getElementById("root")).render(
@@ -17,6 +18,7 @@ createRoot(document.getElementById("root")).render(
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<UserDashboard />} />
         <Route path="/matches" element={<MatchesPage />} />
+        <Route path="/ranking" element={<RankingPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>

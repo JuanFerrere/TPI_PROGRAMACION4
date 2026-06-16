@@ -728,3 +728,93 @@
     grid-template-columns: 1fr;
   }
 }
+
+.ranking-page {
+  min-height: 100vh;
+  padding: 48px 24px;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: #f8fafc;
+}
+
+.ranking-header {
+  max-width: 900px;
+  margin: 0 auto 32px auto;
+  text-align: center;
+}
+
+.ranking-header .eyebrow {
+  color: #38bdf8;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.ranking-header h1 {
+  font-size: 42px;
+  margin: 8px 0;
+}
+
+.ranking-header p {
+  color: #cbd5e1;
+  font-size: 17px;
+}
+
+.ranking-card {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ranking-table thead {
+  background: rgba(56, 189, 248, 0.15);
+}
+
+.ranking-table th,
+.ranking-table td {
+  padding: 18px;
+  text-align: left;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.ranking-table th {
+  color: #e0f2fe;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ranking-table td {
+  color: #f8fafc;
+}
+
+.ranking-table tbody tr:hover {
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.ranking-message,
+.ranking-error {
+  max-width: 700px;
+  margin: 32px auto;
+  padding: 18px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.ranking-message {
+  background: rgba(148, 163, 184, 0.15);
+  color: #e2e8f0;
+}
+
+.ranking-error {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fecaca;
+}
