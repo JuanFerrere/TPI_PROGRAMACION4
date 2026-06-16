@@ -1,3 +1,5 @@
+import { useState } from "react";
+import PredictionForm from "./PredictionForm.jsx";
 import Badge from "../ui/Badge.jsx";
 import Button from "../ui/Button.jsx";
 import Card from "../ui/Card.jsx";
@@ -25,10 +27,26 @@ function formatearFecha(fecha) {
   });
 }
 
+function cargaPronosticoCerrada(fecha) {
+  if (!fecha) {
+    return false;
+  }
+
+  const startTime = new Date(fecha).getTime();
+
+  if (Number.isNaN(startTime)) {
+    return false;
+  }
+
+  return startTime - Date.now() <= 30 * 60 * 1000;
+}
+
 function MatchCard({ match }) {
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const status = match.status || "POR_JUGARSE";
   const finalizado = status === "FINALIZADO";
   const puedePronosticar = status === "POR_JUGARSE";
+  const pronosticoCerrado = puedePronosticar && cargaPronosticoCerrada(match.startTime);
   const resultado =
     match.homeGoals !== null &&
     match.homeGoals !== undefined &&
@@ -59,10 +77,30 @@ function MatchCard({ match }) {
         <strong>{finalizado ? resultado : "-"}</strong>
       </div>
 
-      {puedePronosticar && (
-        <Button disabled fullWidth variant="secondary">
-          Pronosticar
-        </Button>
+      {puedePronosticar && !mostrarFormulario && (
+        <>
+          <Button
+            disabled={pronosticoCerrado}
+            fullWidth
+            onClick={() => setMostrarFormulario(true)}
+            variant="secondary"
+          >
+            Pronosticar
+          </Button>
+
+          {pronosticoCerrado && (
+            <p className="match-card__closed">
+              La carga de pronósticos ya está cerrada.
+            </p>
+          )}
+        </>
+      )}
+
+      {puedePronosticar && mostrarFormulario && !pronosticoCerrado && (
+        <PredictionForm
+          match={match}
+          onCancel={() => setMostrarFormulario(false)}
+        />
       )}
     </Card>
   );
