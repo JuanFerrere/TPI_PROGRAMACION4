@@ -59,9 +59,14 @@ function MatchesPage() {
             <p>Elegí un partido y prepará tu pronóstico.</p>
           </div>
 
-          <Button onClick={() => navigate("/dashboard")} variant="secondary">
-            Volver al dashboard
-          </Button>
+          <div className="matches-header__actions">
+            <Button onClick={() => navigate("/predictions")} variant="secondary">
+              Mis pronósticos
+            </Button>
+            <Button onClick={() => navigate("/dashboard")} variant="secondary">
+              Volver al dashboard
+            </Button>
+          </div>
         </header>
 
         {cargando && (

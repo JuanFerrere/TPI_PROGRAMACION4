@@ -616,6 +616,13 @@
   margin: 0;
 }
 
+.matches-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .matches-loading {
   align-items: center;
   background: rgba(19, 25, 41, 0.82);
@@ -834,12 +841,237 @@
     width: 100%;
   }
 
+  .matches-header__actions {
+    width: 100%;
+  }
+
   .matches-grid {
     grid-template-columns: 1fr;
   }
 
   .prediction-form__teams,
   .prediction-form__actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+.predictions-page {
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 32px 24px;
+  position: relative;
+}
+
+.predictions-page::before {
+  background:
+    linear-gradient(135deg, rgba(59, 130, 246, 0.14), transparent 32%),
+    linear-gradient(230deg, rgba(245, 158, 11, 0.1), transparent 28%),
+    var(--color-background);
+  content: "";
+  inset: 0;
+  position: absolute;
+  z-index: -2;
+}
+
+.predictions-page::after {
+  background-image:
+    linear-gradient(rgba(226, 232, 240, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(226, 232, 240, 0.04) 1px, transparent 1px);
+  background-size: 72px 72px;
+  content: "";
+  inset: 0;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
+  position: absolute;
+  z-index: -1;
+}
+
+.predictions-shell {
+  margin: 0 auto;
+  max-width: 1120px;
+  width: 100%;
+}
+
+.predictions-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.predictions-header h1 {
+  color: var(--color-text);
+  font-size: 44px;
+  line-height: 1.05;
+  margin: 0 0 10px;
+}
+
+.predictions-header p {
+  color: var(--color-text-muted);
+  font-size: 17px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.predictions-header__actions,
+.predictions-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.predictions-filters {
+  justify-content: flex-start;
+  margin-bottom: 20px;
+}
+
+.predictions-loading {
+  align-items: center;
+  background: rgba(19, 25, 41, 0.82);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  min-height: 180px;
+}
+
+.predictions-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.prediction-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 300px;
+}
+
+.prediction-card--hit {
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.28);
+}
+
+.prediction-card__top {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.prediction-card__top > span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.prediction-card__match {
+  display: grid;
+  gap: 8px;
+}
+
+.prediction-card__match strong {
+  color: var(--color-text);
+  font-size: 21px;
+  line-height: 1.2;
+}
+
+.prediction-card__match span {
+  color: var(--color-amber);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.prediction-card__date {
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.prediction-card__score {
+  align-items: center;
+  background: rgba(11, 15, 26, 0.55);
+  border: 1px solid rgba(30, 45, 69, 0.9);
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  min-height: 58px;
+  padding: 12px 14px;
+}
+
+.prediction-card__score span,
+.prediction-card__meta span {
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.prediction-card__score strong {
+  color: var(--color-text);
+  font-size: 26px;
+}
+
+.prediction-card__meta {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.prediction-card__meta div {
+  background: rgba(11, 15, 26, 0.38);
+  border: 1px solid rgba(30, 45, 69, 0.72);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.prediction-card__meta strong {
+  color: var(--color-text);
+  line-height: 1.25;
+}
+
+.prediction-card__exact-hit {
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.38);
+  border-radius: 8px;
+  color: var(--color-amber);
+  font-weight: 800;
+  margin: auto 0 0;
+  padding: 10px 12px;
+}
+
+@media (max-width: 920px) {
+  .predictions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .predictions-page {
+    padding: 24px 18px;
+  }
+
+  .predictions-header {
+    flex-direction: column;
+  }
+
+  .predictions-header h1 {
+    font-size: 34px;
+  }
+
+  .predictions-header__actions,
+  .predictions-header .ui-button,
+  .predictions-filters .ui-button {
+    width: 100%;
+  }
+
+  .predictions-grid,
+  .prediction-card__meta {
     grid-template-columns: 1fr;
   }
 }

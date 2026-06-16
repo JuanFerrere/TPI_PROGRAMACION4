@@ -5,6 +5,7 @@ import App from "./App.jsx";
 import Registro from "./pages/Registro.jsx";
 import Login from "./pages/Login.jsx";
 import MatchesPage from "./pages/MatchesPage.jsx";
+import PredictionsPage from "./pages/PredictionsPage.jsx";
 import UserDashboard from "./pages/UserDashboard.jsx";
 import RankingPage from "./pages/RankingPage.jsx";
 import "./index.css";
@@ -18,6 +19,7 @@ createRoot(document.getElementById("root")).render(
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<UserDashboard />} />
         <Route path="/matches" element={<MatchesPage />} />
+        <Route path="/predictions" element={<PredictionsPage />} />
         <Route path="/ranking" element={<RankingPage />} />
       </Routes>
     </BrowserRouter>

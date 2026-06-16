@@ -12,12 +12,15 @@ const dashboardCards = [
     description: "Consultá los partidos disponibles para cargar pronósticos.",
     variant: "primary",
     path: "/matches",
+    actionLabel: "Ver partidos",
   },
   {
     title: "Mis pronósticos",
     badge: "Pendientes",
     description: "Revisá tus predicciones y prepará la próxima fecha.",
     variant: "amber",
+    path: "/predictions",
+    actionLabel: "Ver pronósticos",
   },
   {
     title: "Ranking global",
@@ -110,7 +113,7 @@ function UserDashboard() {
                 onClick={() => card.path && navigate(card.path)}
                 variant="secondary"
               >
-                {card.path ? "Ver partidos" : "Próximamente"}
+                {card.actionLabel || "Próximamente"}
               </Button>
             </Card>
           ))}
