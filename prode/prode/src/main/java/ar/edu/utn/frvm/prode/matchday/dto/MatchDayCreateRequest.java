@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Size;
  */
 public record MatchDayCreateRequest(
 		@NotBlank(message = "El nombre de la fecha es obligatorio") // Evita crear fechas sin nombre real.
-		@Size(max = 120, message = "El nombre de la fecha no puede superar 120 caracteres") // Mantiene coherencia con la columna name.
+		@Size(max = 100, message = "El nombre de la fecha no puede superar 100 caracteres") // Mantiene coherencia con la columna name.
 		String name
 ) {
 }

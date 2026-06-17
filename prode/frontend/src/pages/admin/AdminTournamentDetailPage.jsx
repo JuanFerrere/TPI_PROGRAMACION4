@@ -10,19 +10,20 @@ import "../../App.css";
 
 const secciones = [
   {
-    title: "Equipos",
+    title: "Equipos y grupos",
+    description: "Administra los equipos asociados a este torneo.",
+    path: "teams",
     enabled: true,
   },
   {
-    title: "Fechas",
-    enabled: false,
-  },
-  {
-    title: "Partidos",
-    enabled: false,
+    title: "Fechas y partidos",
+    description: "Organiza las jornadas y carga los encuentros del torneo.",
+    path: "schedule",
+    enabled: true,
   },
   {
     title: "Resultados",
+    description: "Se habilitara cuando los datos esten relacionados con este torneo.",
     enabled: false,
   },
 ];
@@ -123,10 +124,7 @@ function AdminTournamentDetailPage() {
           <div>
             <Badge variant="amber">Torneo</Badge>
             <h1>{torneo?.name || "Detalle de torneo"}</h1>
-            <p>
-              Administra el contenido del torneo cuando las relaciones esten
-              disponibles.
-            </p>
+            <p>Administra equipos, fechas, partidos y resultados del torneo.</p>
           </div>
 
           <div className="admin-header__actions">
@@ -178,17 +176,13 @@ function AdminTournamentDetailPage() {
                     {seccion.enabled ? "Disponible" : "Proximamente"}
                   </Badge>
                   <h2>{seccion.title}</h2>
-                  <p>
-                    {seccion.enabled
-                      ? "Administra los equipos asociados a este torneo."
-                      : "Se habilitara cuando los datos esten relacionados con este torneo."}
-                  </p>
+                  <p>{seccion.description}</p>
                   <Button
                     disabled={!seccion.enabled}
                     fullWidth
                     onClick={() =>
                       seccion.enabled &&
-                      navigate(`/admin/tournaments/${tournamentId}/teams`)
+                      navigate(`/admin/tournaments/${tournamentId}/${seccion.path}`)
                     }
                     variant="secondary"
                   >

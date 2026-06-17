@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.prode.match.entity;
 
 import ar.edu.utn.frvm.prode.matchday.entity.MatchDay;
 import ar.edu.utn.frvm.prode.team.entity.Team;
+import ar.edu.utn.frvm.prode.tournament.entity.Tournament;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -46,6 +47,10 @@ public class Match {
 	@ManyToOne(fetch = FetchType.LAZY, optional = false) // Cada partido debe pertenecer obligatoriamente a una fecha.
 	@JoinColumn(name = "match_day_id", nullable = false) // Columna FK que apunta a match_days.id.
 	private MatchDay matchDay;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "tournament_id")
+	private Tournament tournament;
 
 	/**
 	 * Relacion JPA muchos-a-uno: muchos partidos pueden usar el mismo equipo como local.
@@ -97,6 +102,14 @@ public class Match {
 	 * @param startTime horario del partido expresado como Instant en UTC.
 	 */
 	public Match(MatchDay matchDay, Team homeTeam, Team awayTeam, Instant startTime) {
+		this.matchDay = matchDay;
+		this.homeTeam = homeTeam;
+		this.awayTeam = awayTeam;
+		this.startTime = startTime;
+	}
+
+	public Match(Tournament tournament, MatchDay matchDay, Team homeTeam, Team awayTeam, Instant startTime) {
+		this.tournament = tournament;
 		this.matchDay = matchDay;
 		this.homeTeam = homeTeam;
 		this.awayTeam = awayTeam;

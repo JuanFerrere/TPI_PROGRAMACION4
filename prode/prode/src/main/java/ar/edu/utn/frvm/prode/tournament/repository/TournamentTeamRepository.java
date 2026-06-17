@@ -18,6 +18,17 @@ public interface TournamentTeamRepository extends JpaRepository<TournamentTeam, 
 
 	Optional<TournamentTeam> findByIdAndTournamentId(Long id, Long tournamentId);
 
+	Optional<TournamentTeam> findByTournamentIdAndTeamId(Long tournamentId, Long teamId);
+
+	@Query("""
+			select tournamentTeam
+			from TournamentTeam tournamentTeam
+			join fetch tournamentTeam.team
+			where tournamentTeam.id = :id
+			and tournamentTeam.tournament.id = :tournamentId
+			""")
+	Optional<TournamentTeam> findByIdAndTournamentIdWithTeam(Long id, Long tournamentId);
+
 	@Query("""
 			select tournamentTeam
 			from TournamentTeam tournamentTeam

@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router";
 import App from "./App.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import AdminTournamentDetailPage from "./pages/admin/AdminTournamentDetailPage.jsx";
+import AdminTournamentSchedulePage from "./pages/admin/AdminTournamentSchedulePage.jsx";
 import AdminTournamentTeamsPage from "./pages/admin/AdminTournamentTeamsPage.jsx";
 import AdminTournamentsPage from "./pages/admin/AdminTournamentsPage.jsx";
 import AdminTeamsPage from "./pages/admin/AdminTeamsPage.jsx";
@@ -35,6 +36,10 @@ createRoot(document.getElementById("root")).render(
         <Route
           path="/admin/tournaments/:tournamentId/teams"
           element={<AdminTournamentTeamsPage />}
+        />
+        <Route
+          path="/admin/tournaments/:tournamentId/schedule"
+          element={<AdminTournamentSchedulePage />}
         />
         <Route path="/admin/teams" element={<AdminTeamsPage />} />
       </Routes>

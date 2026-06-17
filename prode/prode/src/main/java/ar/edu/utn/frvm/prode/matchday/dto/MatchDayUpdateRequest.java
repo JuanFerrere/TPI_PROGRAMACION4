@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Size;
  */
 public record MatchDayUpdateRequest(
 		@NotBlank(message = "El nombre de la fecha es obligatorio") // Evita reemplazar el nombre por texto vacio.
-		@Size(max = 120, message = "El nombre de la fecha no puede superar 120 caracteres") // Respeta el limite de la entidad.
+		@Size(max = 100, message = "El nombre de la fecha no puede superar 100 caracteres") // Respeta el limite de la entidad.
 		String name
 ) {
 }
