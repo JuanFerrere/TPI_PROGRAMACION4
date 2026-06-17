@@ -36,6 +36,15 @@ const dashboardCards = [
   },
 ];
 
+const adminCard = {
+  title: "Panel admin",
+  badge: "ADMIN",
+  description: "Gestioná equipos, fechas, partidos y resultados.",
+  variant: "danger",
+  path: "/admin",
+  actionLabel: "Ir al panel admin",
+};
+
 function leerSesion() {
   return {
     token: localStorage.getItem("token"),
@@ -69,6 +78,9 @@ function UserDashboard() {
     return null;
   }
 
+  const cards =
+    sesion.role === "ADMIN" ? [...dashboardCards, adminCard] : dashboardCards;
+
   return (
     <main className="dashboard-page">
       <section className="dashboard-shell">
@@ -100,7 +112,7 @@ function UserDashboard() {
         </section>
 
         <section className="dashboard-grid" aria-label="Acciones del dashboard">
-          {dashboardCards.map((card) => (
+          {cards.map((card) => (
             <Card className="dashboard-action-card" key={card.title}>
               <Badge size="sm" variant={card.variant}>
                 {card.badge}
