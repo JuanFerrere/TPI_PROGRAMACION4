@@ -1,8 +1,10 @@
 package ar.edu.utn.frvm.prode.tournament.repository;
 
 import ar.edu.utn.frvm.prode.tournament.entity.Tournament;
+import ar.edu.utn.frvm.prode.tournament.entity.TournamentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -24,4 +26,6 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
 	 * @return torneos ordenados por fecha de creacion descendente.
 	 */
 	List<Tournament> findAllByOrderByCreatedAtDesc();
+
+	List<Tournament> findByStatusInOrderByCreatedAtDesc(Collection<TournamentStatus> statuses);
 }

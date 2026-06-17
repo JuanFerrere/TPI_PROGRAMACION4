@@ -23,8 +23,9 @@ const secciones = [
   },
   {
     title: "Resultados",
-    description: "Se habilitara cuando los datos esten relacionados con este torneo.",
-    enabled: false,
+    description: "Carga los marcadores finales y actualiza los puntos del Prode.",
+    path: "results",
+    enabled: true,
   },
 ];
 

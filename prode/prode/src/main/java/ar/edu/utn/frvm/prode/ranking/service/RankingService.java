@@ -1,8 +1,10 @@
 package ar.edu.utn.frvm.prode.ranking.service;
 
+import ar.edu.utn.frvm.prode.common.exception.ResourceNotFoundException;
 import ar.edu.utn.frvm.prode.prediction.entity.Prediction;
 import ar.edu.utn.frvm.prode.prediction.repository.PredictionRepository;
 import ar.edu.utn.frvm.prode.ranking.dto.RankingResponse;
+import ar.edu.utn.frvm.prode.tournament.repository.TournamentRepository;
 import ar.edu.utn.frvm.prode.user.entity.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,14 +31,19 @@ import java.util.Map;
 public class RankingService {
 
 	private final PredictionRepository predictionRepository;
+	private final TournamentRepository tournamentRepository;
 
 	/**
 	 * Constructor con el repositorio de pronosticos.
 	 *
 	 * @param predictionRepository repositorio usado para leer todos los pronosticos.
 	 */
-	public RankingService(PredictionRepository predictionRepository) {
+	public RankingService(
+			PredictionRepository predictionRepository,
+			TournamentRepository tournamentRepository
+	) {
 		this.predictionRepository = predictionRepository;
+		this.tournamentRepository = tournamentRepository;
 	}
 
 	/**
@@ -55,7 +62,20 @@ public class RankingService {
 	@Transactional(readOnly = true) // Solo lee datos; no modifica nada en la base.
 	public List<RankingResponse> getGlobalRanking() {
 		List<Prediction> predictions = predictionRepository.findAll();
+		return buildRanking(predictions);
+	}
 
+	@Transactional(readOnly = true)
+	public List<RankingResponse> getTournamentGlobalRanking(Long tournamentId) {
+		if (!tournamentRepository.existsById(tournamentId)) {
+			throw new ResourceNotFoundException("Torneo no encontrado");
+		}
+
+		List<Prediction> predictions = predictionRepository.findByMatchTournamentId(tournamentId);
+		return buildRanking(predictions);
+	}
+
+	private List<RankingResponse> buildRanking(List<Prediction> predictions) {
 		// Se usa LinkedHashMap para acumular por usuario manteniendo un orden de insercion estable.
 		Map<Long, UserScoreAccumulator> accumulatorByUser = new LinkedHashMap<>();
 

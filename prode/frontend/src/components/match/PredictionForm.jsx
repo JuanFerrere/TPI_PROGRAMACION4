@@ -15,7 +15,12 @@ function calcularTendencia(local, visitante, homeTeamName, awayTeamName) {
   return "Empate";
 }
 
-function PredictionForm({ match, onCancel }) {
+function PredictionForm({
+  match,
+  onCancel,
+  onSave = guardarPronostico,
+  onSaved,
+}) {
   const [predictedHomeGoals, setPredictedHomeGoals] = useState(0);
   const [predictedAwayGoals, setPredictedAwayGoals] = useState(0);
   const [guardando, setGuardando] = useState(false);
@@ -49,13 +54,16 @@ function PredictionForm({ match, onCancel }) {
     setGuardando(true);
 
     try {
-      await guardarPronostico(
+      await onSave(
         match.id,
         predictedHomeGoals,
         predictedAwayGoals
       );
 
       setMensaje("Pronóstico guardado correctamente");
+      if (onSaved) {
+        onSaved();
+      }
     } catch (error) {
       setError(error.message);
     } finally {

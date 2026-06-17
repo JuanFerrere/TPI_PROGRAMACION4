@@ -10,6 +10,10 @@ import ar.edu.utn.frvm.prode.prediction.dto.PredictionResponse;
 import ar.edu.utn.frvm.prode.prediction.dto.PredictionUpsertRequest;
 import ar.edu.utn.frvm.prode.prediction.entity.Prediction;
 import ar.edu.utn.frvm.prode.prediction.repository.PredictionRepository;
+import ar.edu.utn.frvm.prode.tournament.dto.TournamentPredictionResponse;
+import ar.edu.utn.frvm.prode.tournament.entity.Tournament;
+import ar.edu.utn.frvm.prode.tournament.entity.TournamentStatus;
+import ar.edu.utn.frvm.prode.tournament.repository.TournamentRepository;
 import ar.edu.utn.frvm.prode.user.entity.User;
 import ar.edu.utn.frvm.prode.user.repository.UserRepository;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -35,6 +39,7 @@ public class PredictionService {
 	private final PredictionRepository predictionRepository;
 	private final UserRepository userRepository;
 	private final MatchRepository matchRepository;
+	private final TournamentRepository tournamentRepository;
 
 	/**
 	 * Constructor con repositorios necesarios.
@@ -46,11 +51,13 @@ public class PredictionService {
 	public PredictionService(
 			PredictionRepository predictionRepository,
 			UserRepository userRepository,
-			MatchRepository matchRepository
+			MatchRepository matchRepository,
+			TournamentRepository tournamentRepository
 	) {
 		this.predictionRepository = predictionRepository;
 		this.userRepository = userRepository;
 		this.matchRepository = matchRepository;
+		this.tournamentRepository = tournamentRepository;
 	}
 
 	/**
@@ -94,6 +101,39 @@ public class PredictionService {
 		return toResponse(savedPrediction);
 	}
 
+	@Transactional
+	public TournamentPredictionResponse upsertTournamentPrediction(
+			Long tournamentId,
+			Long matchId,
+			PredictionUpsertRequest request,
+			Authentication authentication
+	) {
+		User user = getAuthenticatedUser(authentication);
+		Tournament tournament = getTournamentById(tournamentId);
+		validateTournamentAllowsPredictions(tournament);
+		Match match = getMatchByIdAndTournamentId(matchId, tournamentId);
+
+		validateMatchCanBePredicted(match);
+		validatePredictionWindow(match);
+
+		ResultTrend predictedTrend = calculateTrend(
+				request.predictedHomeGoals(),
+				request.predictedAwayGoals()
+		);
+
+		Prediction prediction = predictionRepository.findByUserIdAndMatchId(user.getId(), match.getId())
+				.orElseGet(() -> new Prediction(user, match));
+
+		prediction.updatePrediction(
+				request.predictedHomeGoals(),
+				request.predictedAwayGoals(),
+				predictedTrend
+		);
+
+		Prediction savedPrediction = predictionRepository.save(prediction);
+		return toTournamentResponse(savedPrediction, tournament);
+	}
+
 	/**
 	 * Lista los pronosticos del usuario autenticado.
 	 *
@@ -120,6 +160,34 @@ public class PredictionService {
 
 		return predictions.stream()
 				.map(this::toResponse)
+				.toList();
+	}
+
+	@Transactional(readOnly = true)
+	public List<TournamentPredictionResponse> getMyTournamentPredictions(
+			Long tournamentId,
+			Authentication authentication,
+			MatchStatus optionalStatus
+	) {
+		User user = getAuthenticatedUser(authentication);
+		Tournament tournament = getTournamentById(tournamentId);
+
+		List<Prediction> predictions;
+		if (optionalStatus == null) {
+			predictions = predictionRepository.findByUserIdAndMatchTournamentIdOrderByMatchStartTimeAsc(
+					user.getId(),
+					tournamentId
+			);
+		} else {
+			predictions = predictionRepository.findByUserIdAndMatchTournamentIdAndMatchStatusOrderByMatchStartTimeAsc(
+					user.getId(),
+					tournamentId,
+					optionalStatus
+			);
+		}
+
+		return predictions.stream()
+				.map(prediction -> toTournamentResponse(prediction, tournament))
 				.toList();
 	}
 
@@ -254,6 +322,22 @@ public class PredictionService {
 				.orElseThrow(() -> new ResourceNotFoundException("Partido no encontrado"));
 	}
 
+	private Match getMatchByIdAndTournamentId(Long matchId, Long tournamentId) {
+		return matchRepository.findByIdAndTournamentId(matchId, tournamentId)
+				.orElseThrow(() -> new ResourceNotFoundException("Partido del torneo no encontrado"));
+	}
+
+	private Tournament getTournamentById(Long tournamentId) {
+		return tournamentRepository.findById(tournamentId)
+				.orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado"));
+	}
+
+	private void validateTournamentAllowsPredictions(Tournament tournament) {
+		if (tournament.getStatus() != TournamentStatus.ACTIVE) {
+			throw new BusinessRuleException("Solo se pueden cargar pronosticos en torneos ACTIVE");
+		}
+	}
+
 	/**
 	 * Convierte una entidad Prediction en un DTO seguro para responder.
 	 *
@@ -278,6 +362,34 @@ public class PredictionService {
 				prediction.getPredictedHomeGoals(),
 				prediction.getPredictedAwayGoals(),
 				prediction.getPredictedTrend(),
+				prediction.getPoints(),
+				prediction.getExactHit(),
+				prediction.getCreatedAt(),
+				prediction.getUpdatedAt()
+		);
+	}
+
+	private TournamentPredictionResponse toTournamentResponse(Prediction prediction, Tournament tournament) {
+		Match match = prediction.getMatch();
+
+		return new TournamentPredictionResponse(
+				prediction.getId(),
+				tournament.getId(),
+				tournament.getName(),
+				prediction.getUser().getId(),
+				prediction.getUser().getUsername(),
+				match.getId(),
+				match.getMatchDay().getName(),
+				match.getHomeTeam().getName(),
+				match.getAwayTeam().getName(),
+				match.getStartTime(),
+				match.getStatus(),
+				prediction.getPredictedHomeGoals(),
+				prediction.getPredictedAwayGoals(),
+				prediction.getPredictedTrend(),
+				match.getHomeGoals(),
+				match.getAwayGoals(),
+				match.getResultTrend(),
 				prediction.getPoints(),
 				prediction.getExactHit(),
 				prediction.getCreatedAt(),

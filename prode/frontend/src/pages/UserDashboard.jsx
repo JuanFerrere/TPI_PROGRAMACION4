@@ -7,6 +7,14 @@ import "../App.css";
 
 const dashboardCards = [
   {
+    title: "Torneos",
+    badge: "Competencias",
+    description: "Elegi una competencia, realiza tus pronosticos y competi en su ranking.",
+    variant: "success",
+    path: "/tournaments",
+    actionLabel: "Ver torneos",
+  },
+  {
     title: "Próximos partidos",
     badge: "Fixture",
     description: "Consultá los partidos disponibles para cargar pronósticos.",

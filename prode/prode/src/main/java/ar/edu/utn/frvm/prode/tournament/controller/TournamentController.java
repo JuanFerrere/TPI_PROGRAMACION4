@@ -70,6 +70,12 @@ public class TournamentController {
 		return tournamentService.findAll();
 	}
 
+	@GetMapping("/available")
+	@PreAuthorize("isAuthenticated()")
+	public List<TournamentResponse> getAvailableTournaments() {
+		return tournamentService.findAvailable();
+	}
+
 	/**
 	 * Obtiene un torneo puntual por id.
 	 *

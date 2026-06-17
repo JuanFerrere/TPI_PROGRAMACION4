@@ -15,6 +15,7 @@ import ar.edu.utn.frvm.prode.tournament.repository.TournamentTeamRepository;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -136,6 +137,21 @@ class TournamentServiceTest {
 		TournamentResponse response = tournamentService.findById(1L);
 
 		assertEquals(TournamentFormat.LEAGUE, response.format());
+	}
+
+	@Test
+	void torneosDisponiblesDevuelveActiveYFinished() {
+		Tournament active = tournament(1L, "Mundial 2026", null, TournamentStatus.ACTIVE, TournamentFormat.GROUPS);
+		Tournament finished = tournament(2L, "Champions League", null, TournamentStatus.FINISHED, TournamentFormat.LEAGUE);
+		when(tournamentRepository.findByStatusInOrderByCreatedAtDesc(
+				List.of(TournamentStatus.ACTIVE, TournamentStatus.FINISHED)
+		)).thenReturn(List.of(active, finished));
+
+		List<TournamentResponse> response = tournamentService.findAvailable();
+
+		assertEquals(2, response.size());
+		assertEquals(TournamentStatus.ACTIVE, response.get(0).status());
+		assertEquals(TournamentStatus.FINISHED, response.get(1).status());
 	}
 
 	private Tournament tournament(

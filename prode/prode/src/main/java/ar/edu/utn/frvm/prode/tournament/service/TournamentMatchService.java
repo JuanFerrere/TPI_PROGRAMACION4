@@ -5,15 +5,20 @@ import ar.edu.utn.frvm.prode.common.exception.DuplicateResourceException;
 import ar.edu.utn.frvm.prode.common.exception.ResourceNotFoundException;
 import ar.edu.utn.frvm.prode.match.entity.Match;
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
+import ar.edu.utn.frvm.prode.match.entity.ResultTrend;
 import ar.edu.utn.frvm.prode.match.repository.MatchRepository;
 import ar.edu.utn.frvm.prode.matchday.entity.MatchDay;
 import ar.edu.utn.frvm.prode.matchday.repository.MatchDayRepository;
 import ar.edu.utn.frvm.prode.prediction.repository.PredictionRepository;
+import ar.edu.utn.frvm.prode.prediction.service.PredictionScoringService;
+import ar.edu.utn.frvm.prode.matchday.service.MatchDayService;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchBulkCreateRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchBulkItemRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchCreateRequest;
+import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchResultRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchResponse;
 import ar.edu.utn.frvm.prode.tournament.entity.Tournament;
+import ar.edu.utn.frvm.prode.tournament.entity.TournamentStatus;
 import ar.edu.utn.frvm.prode.tournament.entity.TournamentTeam;
 import ar.edu.utn.frvm.prode.tournament.repository.TournamentRepository;
 import ar.edu.utn.frvm.prode.tournament.repository.TournamentTeamRepository;
@@ -37,26 +42,41 @@ public class TournamentMatchService {
 	private final MatchRepository matchRepository;
 	private final TournamentTeamRepository tournamentTeamRepository;
 	private final PredictionRepository predictionRepository;
+	private final PredictionScoringService predictionScoringService;
+	private final MatchDayService matchDayService;
 
 	public TournamentMatchService(
 			TournamentRepository tournamentRepository,
 			MatchDayRepository matchDayRepository,
 			MatchRepository matchRepository,
 			TournamentTeamRepository tournamentTeamRepository,
-			PredictionRepository predictionRepository
+			PredictionRepository predictionRepository,
+			PredictionScoringService predictionScoringService,
+			MatchDayService matchDayService
 	) {
 		this.tournamentRepository = tournamentRepository;
 		this.matchDayRepository = matchDayRepository;
 		this.matchRepository = matchRepository;
 		this.tournamentTeamRepository = tournamentTeamRepository;
 		this.predictionRepository = predictionRepository;
+		this.predictionScoringService = predictionScoringService;
+		this.matchDayService = matchDayService;
 	}
 
 	@Transactional(readOnly = true)
 	public List<TournamentMatchResponse> findAll(Long tournamentId) {
+		return findAll(tournamentId, null);
+	}
+
+	@Transactional(readOnly = true)
+	public List<TournamentMatchResponse> findAll(Long tournamentId, MatchStatus status) {
 		getTournamentById(tournamentId);
 
-		return matchRepository.findByTournamentIdOrderByStartTimeAsc(tournamentId)
+		List<Match> matches = status == null
+				? matchRepository.findByTournamentIdOrderByStartTimeAsc(tournamentId)
+				: matchRepository.findByTournamentIdAndStatusOrderByStartTimeAsc(tournamentId, status);
+
+		return matches
 				.stream()
 				.map(match -> toResponse(tournamentId, match))
 				.toList();
@@ -64,10 +84,19 @@ public class TournamentMatchService {
 
 	@Transactional(readOnly = true)
 	public List<TournamentMatchResponse> findByMatchDay(Long tournamentId, Long matchDayId) {
+		return findByMatchDay(tournamentId, matchDayId, null);
+	}
+
+	@Transactional(readOnly = true)
+	public List<TournamentMatchResponse> findByMatchDay(Long tournamentId, Long matchDayId, MatchStatus status) {
 		getTournamentById(tournamentId);
 		getMatchDayById(tournamentId, matchDayId);
 
-		return matchRepository.findByTournamentIdAndMatchDayIdOrderByStartTimeAsc(tournamentId, matchDayId)
+		List<Match> matches = status == null
+				? matchRepository.findByTournamentIdAndMatchDayIdOrderByStartTimeAsc(tournamentId, matchDayId)
+				: matchRepository.findByTournamentIdAndMatchDayIdAndStatusOrderByStartTimeAsc(tournamentId, matchDayId, status);
+
+		return matches
 				.stream()
 				.map(match -> toResponse(tournamentId, match))
 				.toList();
@@ -129,6 +158,30 @@ public class TournamentMatchService {
 					return toResponse(tournamentId, match, homeTournamentTeam, awayTournamentTeam);
 				})
 				.toList();
+	}
+
+	@Transactional
+	public TournamentMatchResponse saveResult(
+			Long tournamentId,
+			Long matchId,
+			TournamentMatchResultRequest request
+	) {
+		Tournament tournament = getTournamentById(tournamentId);
+		validateTournamentIsNotDraftOrArchived(tournament);
+		Match match = getMatchById(tournamentId, matchId);
+		validateFinishedTournamentOnlyCorrectsResults(tournament, match);
+
+		ResultTrend resultTrend = calculateResultTrend(request.homeGoals(), request.awayGoals());
+		match.setHomeGoals(request.homeGoals());
+		match.setAwayGoals(request.awayGoals());
+		match.setResultTrend(resultTrend);
+		match.setStatus(MatchStatus.FINALIZADO);
+
+		Match savedMatch = matchRepository.save(match);
+		predictionScoringService.scoreMatchPredictions(savedMatch);
+		matchDayService.refreshStatusByMatchDayId(savedMatch.getMatchDay().getId());
+
+		return toResponse(tournamentId, savedMatch);
 	}
 
 	@Transactional
@@ -200,6 +253,25 @@ public class TournamentMatchService {
 				.orElseThrow(() -> new ResourceNotFoundException("Partido del torneo no encontrado"));
 	}
 
+	private void validateTournamentIsNotDraftOrArchived(Tournament tournament) {
+		if (tournament.getStatus() == TournamentStatus.DRAFT) {
+			throw new BusinessRuleException("No se pueden cargar resultados en un torneo DRAFT");
+		}
+
+		if (tournament.getStatus() == TournamentStatus.ARCHIVED) {
+			throw new BusinessRuleException("No se pueden cargar resultados en un torneo ARCHIVED");
+		}
+	}
+
+	private void validateFinishedTournamentOnlyCorrectsResults(Tournament tournament, Match match) {
+		if (
+				tournament.getStatus() == TournamentStatus.FINISHED &&
+				(match.getHomeGoals() == null || match.getAwayGoals() == null)
+		) {
+			throw new BusinessRuleException("En un torneo FINISHED solo se pueden corregir resultados existentes");
+		}
+	}
+
 	private TournamentTeam getTournamentTeamById(Long tournamentId, Long tournamentTeamId, String message) {
 		return tournamentTeamRepository.findByIdAndTournamentIdWithTeam(tournamentTeamId, tournamentId)
 				.orElseThrow(() -> new ResourceNotFoundException(message));
@@ -240,6 +312,18 @@ public class TournamentMatchService {
 		return "Item " + itemNumber + ": " + message;
 	}
 
+	private ResultTrend calculateResultTrend(int homeGoals, int awayGoals) {
+		if (homeGoals > awayGoals) {
+			return ResultTrend.LOCAL;
+		}
+
+		if (homeGoals < awayGoals) {
+			return ResultTrend.VISITANTE;
+		}
+
+		return ResultTrend.EMPATE;
+	}
+
 	private TournamentMatchResponse toResponse(Long tournamentId, Match match) {
 		TournamentTeam homeTournamentTeam = getTournamentTeamByTeamId(tournamentId, match.getHomeTeam().getId());
 		TournamentTeam awayTournamentTeam = getTournamentTeamByTeamId(tournamentId, match.getAwayTeam().getId());
@@ -266,7 +350,10 @@ public class TournamentMatchService {
 				awayTournamentTeam.getTeam().getName(),
 				awayTournamentTeam.getGroupName(),
 				match.getStartTime(),
-				match.getStatus()
+				match.getStatus(),
+				match.getHomeGoals(),
+				match.getAwayGoals(),
+				match.getResultTrend()
 		);
 	}
 }

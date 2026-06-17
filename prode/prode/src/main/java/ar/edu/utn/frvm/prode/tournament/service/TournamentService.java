@@ -81,6 +81,16 @@ public class TournamentService {
 				.toList();
 	}
 
+	@Transactional(readOnly = true)
+	public List<TournamentResponse> findAvailable() {
+		return tournamentRepository.findByStatusInOrderByCreatedAtDesc(
+						List.of(TournamentStatus.ACTIVE, TournamentStatus.FINISHED)
+				)
+				.stream()
+				.map(this::toResponse)
+				.toList();
+	}
+
 	/**
 	 * Obtiene un torneo por id.
 	 *

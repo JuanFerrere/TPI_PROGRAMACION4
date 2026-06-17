@@ -45,6 +45,14 @@ public interface PredictionRepository extends JpaRepository<Prediction, Long> {
 	 */
 	List<Prediction> findByUserIdAndMatchStatusOrderByMatchStartTimeAsc(Long userId, MatchStatus status);
 
+	List<Prediction> findByUserIdAndMatchTournamentIdOrderByMatchStartTimeAsc(Long userId, Long tournamentId);
+
+	List<Prediction> findByUserIdAndMatchTournamentIdAndMatchStatusOrderByMatchStartTimeAsc(
+			Long userId,
+			Long tournamentId,
+			MatchStatus status
+	);
+
 	/**
 	 * Lista pronosticos de un partido ordenados por momento de creacion.
 	 *
@@ -54,6 +62,8 @@ public interface PredictionRepository extends JpaRepository<Prediction, Long> {
 	 * @return pronosticos cargados para ese partido.
 	 */
 	List<Prediction> findByMatchIdOrderByCreatedAtAsc(Long matchId);
+
+	List<Prediction> findByMatchTournamentId(Long tournamentId);
 
 	/**
 	 * Verifica si un partido tiene pronosticos asociados.

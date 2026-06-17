@@ -5,15 +5,19 @@ import ar.edu.utn.frvm.prode.common.exception.DuplicateResourceException;
 import ar.edu.utn.frvm.prode.common.exception.ResourceNotFoundException;
 import ar.edu.utn.frvm.prode.match.entity.Match;
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
+import ar.edu.utn.frvm.prode.match.entity.ResultTrend;
 import ar.edu.utn.frvm.prode.match.repository.MatchRepository;
 import ar.edu.utn.frvm.prode.matchday.entity.MatchDay;
 import ar.edu.utn.frvm.prode.matchday.entity.MatchDayStatus;
 import ar.edu.utn.frvm.prode.matchday.repository.MatchDayRepository;
+import ar.edu.utn.frvm.prode.matchday.service.MatchDayService;
 import ar.edu.utn.frvm.prode.prediction.repository.PredictionRepository;
+import ar.edu.utn.frvm.prode.prediction.service.PredictionScoringService;
 import ar.edu.utn.frvm.prode.team.entity.Team;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchBulkCreateRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchBulkItemRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchCreateRequest;
+import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchResultRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchResponse;
 import ar.edu.utn.frvm.prode.tournament.entity.Tournament;
 import ar.edu.utn.frvm.prode.tournament.entity.TournamentFormat;
@@ -42,12 +46,16 @@ class TournamentMatchServiceTest {
 	private final MatchRepository matchRepository = mock(MatchRepository.class);
 	private final TournamentTeamRepository tournamentTeamRepository = mock(TournamentTeamRepository.class);
 	private final PredictionRepository predictionRepository = mock(PredictionRepository.class);
+	private final PredictionScoringService predictionScoringService = mock(PredictionScoringService.class);
+	private final MatchDayService matchDayService = mock(MatchDayService.class);
 	private final TournamentMatchService service = new TournamentMatchService(
 			tournamentRepository,
 			matchDayRepository,
 			matchRepository,
 			tournamentTeamRepository,
-			predictionRepository
+			predictionRepository,
+			predictionScoringService,
+			matchDayService
 	);
 
 	@Test
@@ -193,6 +201,83 @@ class TournamentMatchServiceTest {
 		when(matchRepository.findByIdAndTournamentId(500L, 1L)).thenReturn(Optional.of(match));
 
 		assertThrows(BusinessRuleException.class, () -> service.remove(1L, 500L));
+	}
+
+	@Test
+	void adminCargaResultadoCorrectamenteYFinalizaPartido() {
+		TestData data = baseData();
+		data.tournament().setStatus(TournamentStatus.ACTIVE);
+		Match match = match(500L, data);
+		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(data.tournament()));
+		when(matchRepository.findByIdAndTournamentId(500L, 1L)).thenReturn(Optional.of(match));
+		when(matchRepository.save(any(Match.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(tournamentTeamRepository.findByTournamentIdAndTeamId(1L, 10L)).thenReturn(Optional.of(data.homeTournamentTeam()));
+		when(tournamentTeamRepository.findByTournamentIdAndTeamId(1L, 11L)).thenReturn(Optional.of(data.awayTournamentTeam()));
+
+		TournamentMatchResponse response = service.saveResult(
+				1L,
+				500L,
+				new TournamentMatchResultRequest(3, 0)
+		);
+
+		assertEquals(MatchStatus.FINALIZADO, response.status());
+		assertEquals(3, response.homeGoals());
+		assertEquals(0, response.awayGoals());
+		assertEquals(ResultTrend.LOCAL, response.resultTrend());
+		verify(predictionScoringService).scoreMatchPredictions(match);
+		verify(matchDayService).refreshStatusByMatchDayId(100L);
+	}
+
+	@Test
+	void corregirResultadoNoDuplicaPuntosPorqueRecalculaElPartido() {
+		TestData data = baseData();
+		data.tournament().setStatus(TournamentStatus.FINISHED);
+		Match match = match(500L, data);
+		match.setStatus(MatchStatus.FINALIZADO);
+		match.setHomeGoals(1);
+		match.setAwayGoals(0);
+		match.setResultTrend(ResultTrend.LOCAL);
+		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(data.tournament()));
+		when(matchRepository.findByIdAndTournamentId(500L, 1L)).thenReturn(Optional.of(match));
+		when(matchRepository.save(any(Match.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(tournamentTeamRepository.findByTournamentIdAndTeamId(1L, 10L)).thenReturn(Optional.of(data.homeTournamentTeam()));
+		when(tournamentTeamRepository.findByTournamentIdAndTeamId(1L, 11L)).thenReturn(Optional.of(data.awayTournamentTeam()));
+
+		TournamentMatchResponse response = service.saveResult(
+				1L,
+				500L,
+				new TournamentMatchResultRequest(0, 2)
+		);
+
+		assertEquals(0, response.homeGoals());
+		assertEquals(2, response.awayGoals());
+		assertEquals(ResultTrend.VISITANTE, response.resultTrend());
+		verify(predictionScoringService).scoreMatchPredictions(match);
+	}
+
+	@Test
+	void noPermiteCargarResultadoEnTorneoDraft() {
+		TestData data = baseData();
+		data.tournament().setStatus(TournamentStatus.DRAFT);
+		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(data.tournament()));
+
+		assertThrows(
+				BusinessRuleException.class,
+				() -> service.saveResult(1L, 500L, new TournamentMatchResultRequest(1, 0))
+		);
+	}
+
+	@Test
+	void noPermiteCargarResultadoDePartidoDeOtroTorneo() {
+		TestData data = baseData();
+		data.tournament().setStatus(TournamentStatus.ACTIVE);
+		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(data.tournament()));
+		when(matchRepository.findByIdAndTournamentId(999L, 1L)).thenReturn(Optional.empty());
+
+		assertThrows(
+				ResourceNotFoundException.class,
+				() -> service.saveResult(1L, 999L, new TournamentMatchResultRequest(1, 0))
+		);
 	}
 
 	private void mockBaseLookups(TestData data) {

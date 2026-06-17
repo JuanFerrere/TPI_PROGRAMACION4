@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.prode.tournament.dto;
 
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
+import ar.edu.utn.frvm.prode.match.entity.ResultTrend;
 
 import java.time.Instant;
 
@@ -21,6 +22,9 @@ import java.time.Instant;
  * @param awayGroupName grupo del visitante, si aplica.
  * @param startTime horario de inicio.
  * @param status estado actual.
+ * @param homeGoals goles reales del local, si ya existe resultado.
+ * @param awayGoals goles reales del visitante, si ya existe resultado.
+ * @param resultTrend tendencia real del resultado, si ya existe resultado.
  */
 public record TournamentMatchResponse(
 		Long id,
@@ -36,6 +40,9 @@ public record TournamentMatchResponse(
 		String awayTeamName,
 		String awayGroupName,
 		Instant startTime,
-		MatchStatus status
+		MatchStatus status,
+		Integer homeGoals,
+		Integer awayGoals,
+		ResultTrend resultTrend
 ) {
 }
