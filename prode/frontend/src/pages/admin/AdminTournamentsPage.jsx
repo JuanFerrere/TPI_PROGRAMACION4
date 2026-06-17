@@ -7,6 +7,7 @@ import EmptyState from "../../components/ui/EmptyState.jsx";
 import ErrorMessage from "../../components/ui/ErrorMessage.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import {
+  actualizarFormatoTorneo,
   actualizarEstadoTorneo,
   crearTorneo,
   obtenerTorneos,
@@ -14,6 +15,12 @@ import {
 import "../../App.css";
 
 const estados = ["DRAFT", "ACTIVE", "FINISHED", "ARCHIVED"];
+const formatos = ["GROUPS", "LEAGUE"];
+
+const formatoLabel = {
+  GROUPS: "Por grupos",
+  LEAGUE: "Tabla general",
+};
 
 const estadoVariant = {
   DRAFT: "neutral",
@@ -52,10 +59,13 @@ function AdminTournamentsPage() {
   const [torneos, setTorneos] = useState([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [format, setFormat] = useState("LEAGUE");
   const [statusPorTorneo, setStatusPorTorneo] = useState({});
+  const [formatPorTorneo, setFormatPorTorneo] = useState({});
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [actualizandoId, setActualizandoId] = useState(null);
+  const [actualizandoFormatoId, setActualizandoFormatoId] = useState(null);
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
 
@@ -73,6 +83,12 @@ function AdminTournamentsPage() {
       setStatusPorTorneo(
         lista.reduce((acc, torneo) => {
           acc[torneo.id] = torneo.status;
+          return acc;
+        }, {})
+      );
+      setFormatPorTorneo(
+        lista.reduce((acc, torneo) => {
+          acc[torneo.id] = torneo.format || "LEAGUE";
           return acc;
         }, {})
       );
@@ -113,9 +129,10 @@ function AdminTournamentsPage() {
     setError("");
 
     try {
-      await crearTorneo(nombreNormalizado, descripcionNormalizada);
+      await crearTorneo(nombreNormalizado, descripcionNormalizada, format);
       setName("");
       setDescription("");
+      setFormat("LEAGUE");
       setMensaje("Torneo creado correctamente.");
       await cargarTorneos(false);
     } catch (error) {
@@ -145,6 +162,29 @@ function AdminTournamentsPage() {
       setError(error.message);
     } finally {
       setActualizandoId(null);
+    }
+  }
+
+  async function manejarActualizarFormato(tournamentId) {
+    const nuevoFormato = formatPorTorneo[tournamentId];
+
+    if (!nuevoFormato) {
+      setError("Selecciona un formato para el torneo.");
+      return;
+    }
+
+    setActualizandoFormatoId(tournamentId);
+    setMensaje("");
+    setError("");
+
+    try {
+      await actualizarFormatoTorneo(tournamentId, nuevoFormato);
+      setMensaje("Formato del torneo actualizado correctamente.");
+      await cargarTorneos(false);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setActualizandoFormatoId(null);
     }
   }
 
@@ -203,6 +243,20 @@ function AdminTournamentsPage() {
               />
             </div>
 
+            <div className="admin-field">
+              <label htmlFor="tournamentFormat">Formato</label>
+              <select
+                disabled={guardando}
+                id="tournamentFormat"
+                name="tournamentFormat"
+                onChange={(evento) => setFormat(evento.target.value)}
+                value={format}
+              >
+                <option value="GROUPS">Por grupos</option>
+                <option value="LEAGUE">Tabla general</option>
+              </select>
+            </div>
+
             <Button isLoading={guardando} type="submit">
               {guardando ? "Creando..." : "Crear torneo"}
             </Button>
@@ -244,6 +298,9 @@ function AdminTournamentsPage() {
                     variant={estadoVariant[torneo.status] || "neutral"}
                   >
                     {torneo.status}
+                  </Badge>
+                  <Badge size="sm" variant="primary">
+                    {formatoLabel[torneo.format || "LEAGUE"]}
                   </Badge>
                   <h2>{torneo.name || "Torneo sin nombre"}</h2>
                   <p>
@@ -289,8 +346,45 @@ function AdminTournamentsPage() {
                       : "Actualizar estado"}
                   </Button>
 
+                  <div className="admin-field">
+                    <label htmlFor={`tournamentFormat-${torneo.id}`}>
+                      Formato
+                    </label>
+                    <select
+                      disabled={
+                        actualizandoId !== null || actualizandoFormatoId !== null
+                      }
+                      id={`tournamentFormat-${torneo.id}`}
+                      onChange={(evento) =>
+                        setFormatPorTorneo((actual) => ({
+                          ...actual,
+                          [torneo.id]: evento.target.value,
+                        }))
+                      }
+                      value={formatPorTorneo[torneo.id] || torneo.format || "LEAGUE"}
+                    >
+                      {formatos.map((item) => (
+                        <option key={item} value={item}>
+                          {formatoLabel[item]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <Button
-                    disabled={actualizandoId !== null}
+                    disabled={actualizandoId !== null || actualizandoFormatoId !== null}
+                    isLoading={actualizandoFormatoId === torneo.id}
+                    onClick={() => manejarActualizarFormato(torneo.id)}
+                    type="button"
+                    variant="secondary"
+                  >
+                    {actualizandoFormatoId === torneo.id
+                      ? "Actualizando..."
+                      : "Actualizar formato"}
+                  </Button>
+
+                  <Button
+                    disabled={actualizandoId !== null || actualizandoFormatoId !== null}
                     onClick={() => navigate(`/admin/tournaments/${torneo.id}`)}
                     type="button"
                   >

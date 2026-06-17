@@ -8,7 +8,29 @@ import Spinner from "../../components/ui/Spinner.jsx";
 import { obtenerTorneoPorId } from "../../services/tournamentService.js";
 import "../../App.css";
 
-const secciones = ["Equipos", "Fechas", "Partidos", "Resultados"];
+const secciones = [
+  {
+    title: "Equipos",
+    enabled: true,
+  },
+  {
+    title: "Fechas",
+    enabled: false,
+  },
+  {
+    title: "Partidos",
+    enabled: false,
+  },
+  {
+    title: "Resultados",
+    enabled: false,
+  },
+];
+
+const formatoLabel = {
+  GROUPS: "Por grupos",
+  LEAGUE: "Tabla general",
+};
 
 const estadoVariant = {
   DRAFT: "neutral",
@@ -135,6 +157,9 @@ function AdminTournamentDetailPage() {
               >
                 {torneo.status}
               </Badge>
+              <Badge size="sm" variant="primary">
+                {formatoLabel[torneo.format || "LEAGUE"]}
+              </Badge>
               <h2>{torneo.name}</h2>
               <p>
                 {torneo.description ||
@@ -148,16 +173,25 @@ function AdminTournamentDetailPage() {
               className="admin-tournament-sections"
             >
               {secciones.map((seccion) => (
-                <Card className="admin-tournament-section-card" key={seccion}>
+                <Card className="admin-tournament-section-card" key={seccion.title}>
                   <Badge size="sm" variant="neutral">
-                    Proximamente
+                    {seccion.enabled ? "Disponible" : "Proximamente"}
                   </Badge>
-                  <h2>{seccion}</h2>
+                  <h2>{seccion.title}</h2>
                   <p>
-                    Se habilitara cuando los datos esten relacionados con este
-                    torneo.
+                    {seccion.enabled
+                      ? "Administra los equipos asociados a este torneo."
+                      : "Se habilitara cuando los datos esten relacionados con este torneo."}
                   </p>
-                  <Button disabled fullWidth variant="secondary">
+                  <Button
+                    disabled={!seccion.enabled}
+                    fullWidth
+                    onClick={() =>
+                      seccion.enabled &&
+                      navigate(`/admin/tournaments/${tournamentId}/teams`)
+                    }
+                    variant="secondary"
+                  >
                     Gestionar
                   </Button>
                 </Card>

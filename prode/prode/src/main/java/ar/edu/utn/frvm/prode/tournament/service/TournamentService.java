@@ -4,11 +4,14 @@ import ar.edu.utn.frvm.prode.common.exception.BusinessRuleException;
 import ar.edu.utn.frvm.prode.common.exception.DuplicateResourceException;
 import ar.edu.utn.frvm.prode.common.exception.ResourceNotFoundException;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentCreateRequest;
+import ar.edu.utn.frvm.prode.tournament.dto.TournamentFormatUpdateRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentResponse;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentStatusUpdateRequest;
 import ar.edu.utn.frvm.prode.tournament.entity.Tournament;
+import ar.edu.utn.frvm.prode.tournament.entity.TournamentFormat;
 import ar.edu.utn.frvm.prode.tournament.entity.TournamentStatus;
 import ar.edu.utn.frvm.prode.tournament.repository.TournamentRepository;
+import ar.edu.utn.frvm.prode.tournament.repository.TournamentTeamRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,14 +30,20 @@ public class TournamentService {
 	private static final int MAX_DESCRIPTION_LENGTH = 500;
 
 	private final TournamentRepository tournamentRepository;
+	private final TournamentTeamRepository tournamentTeamRepository;
 
 	/**
 	 * Constructor con repositorio de torneos.
 	 *
 	 * @param tournamentRepository repositorio para consultar y guardar torneos.
+	 * @param tournamentTeamRepository repositorio para validar equipos asociados.
 	 */
-	public TournamentService(TournamentRepository tournamentRepository) {
+	public TournamentService(
+			TournamentRepository tournamentRepository,
+			TournamentTeamRepository tournamentTeamRepository
+	) {
 		this.tournamentRepository = tournamentRepository;
+		this.tournamentTeamRepository = tournamentTeamRepository;
 	}
 
 	/**
@@ -47,12 +56,13 @@ public class TournamentService {
 	public TournamentResponse create(TournamentCreateRequest request) {
 		String name = normalizeName(request.name());
 		String description = normalizeDescription(request.description());
+		TournamentFormat format = parseFormat(request.format());
 
 		if (tournamentRepository.existsByNameIgnoreCase(name)) {
 			throw new DuplicateResourceException("Ya existe un torneo con ese nombre");
 		}
 
-		Tournament tournament = new Tournament(name, description);
+		Tournament tournament = new Tournament(name, description, format);
 		tournament.setStatus(TournamentStatus.DRAFT);
 		Tournament savedTournament = tournamentRepository.save(tournament);
 		return toResponse(savedTournament);
@@ -98,7 +108,31 @@ public class TournamentService {
 		return toResponse(tournament);
 	}
 
-	private Tournament getTournamentEntityById(Long tournamentId) {
+	/**
+	 * Actualiza el formato de un torneo mientras sigue sin equipos asociados.
+	 *
+	 * @param tournamentId identificador del torneo.
+	 * @param request DTO con el nuevo formato.
+	 * @return torneo actualizado como DTO.
+	 */
+	@Transactional
+	public TournamentResponse updateFormat(Long tournamentId, TournamentFormatUpdateRequest request) {
+		Tournament tournament = getTournamentEntityById(tournamentId);
+		TournamentFormat format = parseFormat(request.format());
+
+		if (tournament.getStatus() != TournamentStatus.DRAFT) {
+			throw new BusinessRuleException("Solo se puede cambiar el formato de un torneo en DRAFT");
+		}
+
+		if (tournamentTeamRepository.existsByTournamentId(tournamentId)) {
+			throw new BusinessRuleException("No se puede cambiar el formato si el torneo ya tiene equipos asociados");
+		}
+
+		tournament.setFormat(format);
+		return toResponse(tournament);
+	}
+
+	public Tournament getTournamentEntityById(Long tournamentId) {
 		return tournamentRepository.findById(tournamentId)
 				.orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado"));
 	}
@@ -143,12 +177,29 @@ public class TournamentService {
 		}
 	}
 
+	private TournamentFormat parseFormat(String format) {
+		if (format == null || format.isBlank()) {
+			throw new BusinessRuleException("El formato del torneo es obligatorio");
+		}
+
+		try {
+			return TournamentFormat.valueOf(format.trim());
+		} catch (IllegalArgumentException exception) {
+			throw new BusinessRuleException("Formato de torneo invalido");
+		}
+	}
+
+	private TournamentFormat effectiveFormat(Tournament tournament) {
+		return tournament.getFormat() == null ? TournamentFormat.LEAGUE : tournament.getFormat();
+	}
+
 	private TournamentResponse toResponse(Tournament tournament) {
 		return new TournamentResponse(
 				tournament.getId(),
 				tournament.getName(),
 				tournament.getDescription(),
 				tournament.getStatus(),
+				effectiveFormat(tournament),
 				tournament.getCreatedAt(),
 				tournament.getUpdatedAt()
 		);

@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
  *
  * @param name nombre obligatorio del torneo.
  * @param description descripcion opcional del torneo.
+ * @param format formato deportivo del torneo.
  */
 public record TournamentCreateRequest(
 		@NotBlank(message = "El nombre del torneo es obligatorio")
@@ -15,6 +16,9 @@ public record TournamentCreateRequest(
 		String name,
 
 		@Size(max = 500, message = "La descripcion del torneo no puede superar 500 caracteres")
-		String description
+		String description,
+
+		@NotBlank(message = "El formato del torneo es obligatorio")
+		String format
 ) {
 }

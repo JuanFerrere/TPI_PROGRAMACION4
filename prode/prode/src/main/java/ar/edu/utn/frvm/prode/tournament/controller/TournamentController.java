@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.prode.tournament.controller;
 
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentCreateRequest;
+import ar.edu.utn.frvm.prode.tournament.dto.TournamentFormatUpdateRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentResponse;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentStatusUpdateRequest;
 import ar.edu.utn.frvm.prode.tournament.service.TournamentService;
@@ -102,5 +103,24 @@ public class TournamentController {
 			@RequestBody TournamentStatusUpdateRequest request
 	) {
 		return tournamentService.updateStatus(tournamentId, request);
+	}
+
+	/**
+	 * Actualiza el formato de un torneo.
+	 *
+	 * Rol permitido: ADMIN.
+	 *
+	 * @param tournamentId identificador del torneo.
+	 * @param request body JSON con el nuevo formato.
+	 * @return torneo actualizado.
+	 */
+	@PatchMapping("/{tournamentId}/format")
+	@PreAuthorize("hasRole('ADMIN')")
+	public TournamentResponse updateTournamentFormat(
+			@PathVariable Long tournamentId,
+			@Valid
+			@RequestBody TournamentFormatUpdateRequest request
+	) {
+		return tournamentService.updateFormat(tournamentId, request);
 	}
 }

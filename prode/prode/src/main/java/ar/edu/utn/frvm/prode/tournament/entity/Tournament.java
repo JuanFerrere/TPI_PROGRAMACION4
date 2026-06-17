@@ -47,6 +47,10 @@ public class Tournament {
 	@Column(nullable = false, length = 20)
 	private TournamentStatus status;
 
+	@Enumerated(EnumType.STRING)
+	@Column(length = 20)
+	private TournamentFormat format;
+
 	@Column(nullable = false, updatable = false)
 	private Instant createdAt;
 
@@ -59,9 +63,10 @@ public class Tournament {
 	 * @param name nombre visible del torneo.
 	 * @param description descripcion opcional.
 	 */
-	public Tournament(String name, String description) {
+	public Tournament(String name, String description, TournamentFormat format) {
 		this.name = name;
 		this.description = description;
+		this.format = format;
 	}
 
 	/**
@@ -71,6 +76,9 @@ public class Tournament {
 	public void prePersist() {
 		if (this.status == null) {
 			this.status = TournamentStatus.DRAFT;
+		}
+		if (this.format == null) {
+			this.format = TournamentFormat.LEAGUE;
 		}
 
 		Instant now = Instant.now();
