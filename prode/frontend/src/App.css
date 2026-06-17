@@ -1312,3 +1312,134 @@
     grid-template-columns: 1fr;
   }
 }
+
+.admin-team-form-card,
+.admin-team-filter-card {
+  margin-bottom: 16px;
+}
+
+.admin-team-form,
+.admin-team-filter {
+  align-items: end;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.admin-team-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-team-field label {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.admin-team-field input {
+  background: rgba(11, 15, 26, 0.72);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  min-height: 46px;
+  outline: none;
+  padding: 12px 14px;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+  width: 100%;
+}
+
+.admin-team-field input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.admin-team-success {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 8px;
+  color: var(--color-success);
+  margin: 14px 0 0;
+  padding: 10px 12px;
+}
+
+.admin-team-filter__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.admin-teams-loading {
+  align-items: center;
+  background: rgba(19, 25, 41, 0.82);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  min-height: 180px;
+}
+
+.admin-teams-list {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-team-card {
+  align-items: center;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.admin-team-card__info h2 {
+  color: var(--color-text);
+  font-size: 22px;
+  line-height: 1.2;
+  margin: 12px 0 8px;
+}
+
+.admin-team-card__info p {
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.admin-team-confirm {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.admin-team-confirm p {
+  color: var(--color-text);
+  font-weight: 700;
+  margin: 0;
+}
+
+.admin-team-confirm__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .admin-team-form,
+  .admin-team-filter,
+  .admin-team-card {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-team-filter__actions,
+  .admin-team-confirm__actions,
+  .admin-team-card .ui-button {
+    width: 100%;
+  }
+}

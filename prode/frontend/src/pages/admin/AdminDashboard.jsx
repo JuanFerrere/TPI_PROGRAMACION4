@@ -11,6 +11,7 @@ const adminCards = [
     description: "Crear, listar y eliminar equipos.",
     badge: "Clubes",
     variant: "primary",
+    path: "/admin/teams",
   },
   {
     title: "Fechas",
@@ -106,7 +107,12 @@ function AdminDashboard() {
               </Badge>
               <h2>{card.title}</h2>
               <p>{card.description}</p>
-              <Button disabled fullWidth variant="secondary">
+              <Button
+                disabled={!card.path}
+                fullWidth
+                onClick={() => card.path && navigate(card.path)}
+                variant="secondary"
+              >
                 Gestionar
               </Button>
             </Card>

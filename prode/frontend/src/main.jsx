@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router";
 import App from "./App.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
+import AdminTeamsPage from "./pages/admin/AdminTeamsPage.jsx";
 import Registro from "./pages/Registro.jsx";
 import Login from "./pages/Login.jsx";
 import MatchesPage from "./pages/MatchesPage.jsx";
@@ -23,6 +24,7 @@ createRoot(document.getElementById("root")).render(
         <Route path="/predictions" element={<PredictionsPage />} />
         <Route path="/ranking" element={<RankingPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/teams" element={<AdminTeamsPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>
