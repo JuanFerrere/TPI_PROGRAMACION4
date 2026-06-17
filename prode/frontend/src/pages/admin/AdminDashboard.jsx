@@ -7,11 +7,17 @@ import "../../App.css";
 
 const adminCards = [
   {
+    title: "Torneos",
+    description: "Crea competencias y administra su contenido.",
+    badge: "Base",
+    variant: "amber",
+    path: "/admin/tournaments",
+  },
+  {
     title: "Equipos",
-    description: "Crear, listar y eliminar equipos.",
+    description: "Los equipos se administraran dentro de cada torneo.",
     badge: "Clubes",
     variant: "primary",
-    path: "/admin/teams",
   },
   {
     title: "Fechas",
