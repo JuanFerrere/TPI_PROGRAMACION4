@@ -19,6 +19,7 @@ import TournamentHomePage from "./pages/TournamentHomePage.jsx";
 import TournamentMatchesPage from "./pages/TournamentMatchesPage.jsx";
 import TournamentPredictionsPage from "./pages/TournamentPredictionsPage.jsx";
 import TournamentRankingPage from "./pages/TournamentRankingPage.jsx";
+import StandingsPage from "./pages/StandingsPage.jsx";
 import TournamentsPage from "./pages/TournamentsPage.jsx";
 import "./index.css";
 
@@ -46,6 +47,10 @@ createRoot(document.getElementById("root")).render(
         <Route
           path="/tournaments/:tournamentId/ranking"
           element={<TournamentRankingPage />}
+        />
+        <Route
+          path="/tournaments/:tournamentId/standings"
+          element={<StandingsPage />}
         />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/tournaments" element={<AdminTournamentsPage />} />

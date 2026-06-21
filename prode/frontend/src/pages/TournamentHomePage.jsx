@@ -129,6 +129,19 @@ function TournamentHomePage() {
                   Ver ranking
                 </Button>
               </Card>
+
+              <Card className="tournament-card">
+                <Badge size="sm" variant="primary">Tabla</Badge>
+                <h2>Tabla deportiva</h2>
+                <p>Consulta posiciones, puntos, goles y diferencia de gol del torneo.</p>
+                <Button
+                  fullWidth
+                  onClick={() => navigate(`/tournaments/${tournamentId}/standings`)}
+                  variant="secondary"
+                >
+                  Ver tabla
+                </Button>
+              </Card>
             </section>
           </>
         )}
