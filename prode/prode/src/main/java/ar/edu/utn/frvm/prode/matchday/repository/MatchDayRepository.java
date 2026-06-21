@@ -5,9 +5,36 @@ import ar.edu.utn.frvm.prode.matchday.entity.MatchDayStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
+/**
+ * Repositorio JPA para fechas o jornadas.
+ *
+ * JpaRepository aporta operaciones CRUD y Spring Data genera consultas por nombre de metodo.
+ */
 public interface MatchDayRepository extends JpaRepository<MatchDay, Long> {
+
+	/**
+	 * Verifica si ya existe una fecha con ese nombre sin distinguir mayusculas/minusculas.
+	 *
+	 * @param name nombre a validar.
+	 * @return true si el nombre ya existe, false si esta disponible.
+	 */
 	boolean existsByNameIgnoreCase(String name);
 
+	boolean existsByTournamentIdAndNameIgnoreCase(Long tournamentId, String name);
+
+	boolean existsByTournamentIdAndOrderNumber(Long tournamentId, Integer orderNumber);
+
+	List<MatchDay> findByTournamentIdOrderByOrderNumberAscIdAsc(Long tournamentId);
+
+	Optional<MatchDay> findByIdAndTournamentId(Long id, Long tournamentId);
+
+	/**
+	 * Busca fechas por estado.
+	 *
+	 * @param status estado solicitado por el cliente.
+	 * @return lista de fechas que tienen ese estado.
+	 */
 	List<MatchDay> findByStatus(MatchDayStatus status);
 }

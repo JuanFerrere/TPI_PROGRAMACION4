@@ -1,4 +1,4 @@
-const API_AUTH_URL = "http://localhost:8080/api/auth";
+const API_URL = "http://localhost:8080/api/auth";
 
 async function enviarRequest(url, datos) {
   const respuesta = await fetch(url, {
@@ -19,9 +19,9 @@ async function enviarRequest(url, datos) {
 }
 
 export function registrarUsuario(usuario) {
-  return enviarRequest(`${API_AUTH_URL}/register`, usuario);
+  return enviarRequest(`${API_URL}/register`, usuario);
 }
 
 export function iniciarSesion(credenciales) {
-  return enviarRequest(`${API_AUTH_URL}/login`, credenciales);
+  return enviarRequest(`${API_URL}/login`, credenciales);
 }

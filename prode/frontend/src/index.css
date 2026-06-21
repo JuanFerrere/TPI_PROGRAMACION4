@@ -1,6 +1,38 @@
+:root {
+  color-scheme: dark;
+  --color-background: #0B0F1A;
+  --color-card: #131929;
+  --color-border: #1E2D45;
+  --color-text: #E2E8F0;
+  --color-text-muted: #64748B;
+  --color-primary: #3B82F6;
+  --color-amber: #F59E0B;
+  --color-success: #10B981;
+  --color-danger: #EF4444;
+  --font-sans: Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
+  min-width: 320px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a {
+  color: var(--color-primary);
 }
 
 main {
