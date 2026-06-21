@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.prode.tournament.service;
 
 import ar.edu.utn.frvm.prode.common.exception.ResourceNotFoundException;
 import ar.edu.utn.frvm.prode.match.entity.Match;
+import ar.edu.utn.frvm.prode.match.entity.MatchPhase;
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
 import ar.edu.utn.frvm.prode.match.repository.MatchRepository;
 import ar.edu.utn.frvm.prode.matchday.entity.MatchDay;
@@ -77,6 +78,59 @@ class TournamentStandingServiceTest {
 		assertEquals(2, rows.size());
 		assertEquals(0, rows.get(0).played());
 		assertEquals(0, rows.get(0).points());
+	}
+
+	@Test
+	void cuentaPartidosConPhaseRegular() {
+		Tournament tournament = tournament(1L, TournamentFormat.LEAGUE);
+		Team a = team(10L, "Alpha");
+		Team b = team(11L, "Beta");
+		stubTeams(tournament, tournamentTeam(tournament, a, null), tournamentTeam(tournament, b, null));
+		stubFinishedMatches(finishedMatch(tournament, a, b, 2, 0, MatchPhase.REGULAR));
+
+		var rows = standingService.getStandings(1L).groups().getFirst().rows();
+
+		assertEquals("Alpha", rows.get(0).teamName());
+		assertEquals(3, rows.get(0).points());
+		assertEquals(1, rows.get(0).played());
+	}
+
+	@Test
+	void cuentaPartidosConPhaseNullComoRegular() {
+		Tournament tournament = tournament(1L, TournamentFormat.LEAGUE);
+		Team a = team(10L, "Alpha");
+		Team b = team(11L, "Beta");
+		stubTeams(tournament, tournamentTeam(tournament, a, null), tournamentTeam(tournament, b, null));
+		stubFinishedMatches(finishedMatch(tournament, a, b, 1, 0));
+
+		var rows = standingService.getStandings(1L).groups().getFirst().rows();
+
+		assertEquals("Alpha", rows.get(0).teamName());
+		assertEquals(3, rows.get(0).points());
+		assertEquals(1, rows.get(0).played());
+	}
+
+	@Test
+	void noCuentaPartidosKnockoutEnLaTablaRegular() {
+		Tournament tournament = tournament(1L, TournamentFormat.LEAGUE);
+		Team a = team(10L, "Alpha");
+		Team b = team(11L, "Beta");
+		stubTeams(tournament, tournamentTeam(tournament, a, null), tournamentTeam(tournament, b, null));
+		stubFinishedMatches(
+				finishedMatch(tournament, a, b, 1, 0, MatchPhase.REGULAR),
+				finishedMatch(tournament, b, a, 8, 0, MatchPhase.KNOCKOUT)
+		);
+
+		var rows = standingService.getStandings(1L).groups().getFirst().rows();
+
+		assertEquals("Alpha", rows.get(0).teamName());
+		assertEquals(3, rows.get(0).points());
+		assertEquals(1, rows.get(0).played());
+		assertEquals(1, rows.get(0).goalsFor());
+		assertEquals("Beta", rows.get(1).teamName());
+		assertEquals(0, rows.get(1).points());
+		assertEquals(1, rows.get(1).played());
+		assertEquals(0, rows.get(1).goalsFor());
 	}
 
 	@Test
@@ -158,11 +212,23 @@ class TournamentStandingServiceTest {
 	}
 
 	private Match finishedMatch(Tournament tournament, Team home, Team away, int homeGoals, int awayGoals) {
+		return finishedMatch(tournament, home, away, homeGoals, awayGoals, null);
+	}
+
+	private Match finishedMatch(
+			Tournament tournament,
+			Team home,
+			Team away,
+			int homeGoals,
+			int awayGoals,
+			MatchPhase phase
+	) {
 		MatchDay matchDay = new MatchDay("Fecha 1", tournament, 1);
 		Match match = new Match(tournament, matchDay, home, away, Instant.parse("2026-06-20T19:00:00Z"));
 		match.setHomeGoals(homeGoals);
 		match.setAwayGoals(awayGoals);
 		match.setStatus(MatchStatus.FINALIZADO);
+		match.setPhase(phase);
 		return match;
 	}
 }

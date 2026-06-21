@@ -4,6 +4,7 @@ import ar.edu.utn.frvm.prode.common.exception.BusinessRuleException;
 import ar.edu.utn.frvm.prode.common.exception.DuplicateResourceException;
 import ar.edu.utn.frvm.prode.common.exception.ResourceNotFoundException;
 import ar.edu.utn.frvm.prode.match.entity.Match;
+import ar.edu.utn.frvm.prode.match.entity.MatchPhase;
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
 import ar.edu.utn.frvm.prode.match.entity.ResultTrend;
 import ar.edu.utn.frvm.prode.match.repository.MatchRepository;
@@ -33,6 +34,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -74,6 +76,9 @@ class TournamentMatchServiceTest {
 		assertEquals(200L, response.homeTournamentTeamId());
 		assertEquals(201L, response.awayTournamentTeamId());
 		assertEquals(MatchStatus.POR_JUGARSE, response.status());
+		assertEquals(MatchPhase.REGULAR, response.phase());
+		assertNull(response.knockoutRound());
+		assertNull(response.bracketPosition());
 	}
 
 	@Test

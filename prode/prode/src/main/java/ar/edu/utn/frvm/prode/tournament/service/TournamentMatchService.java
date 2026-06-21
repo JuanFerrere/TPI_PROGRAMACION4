@@ -4,6 +4,7 @@ import ar.edu.utn.frvm.prode.common.exception.BusinessRuleException;
 import ar.edu.utn.frvm.prode.common.exception.DuplicateResourceException;
 import ar.edu.utn.frvm.prode.common.exception.ResourceNotFoundException;
 import ar.edu.utn.frvm.prode.match.entity.Match;
+import ar.edu.utn.frvm.prode.match.entity.MatchPhase;
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
 import ar.edu.utn.frvm.prode.match.entity.ResultTrend;
 import ar.edu.utn.frvm.prode.match.repository.MatchRepository;
@@ -235,6 +236,9 @@ public class TournamentMatchService {
 				startTime
 		);
 		match.setStatus(MatchStatus.POR_JUGARSE);
+		match.setPhase(MatchPhase.REGULAR);
+		match.setKnockoutRound(null);
+		match.setBracketPosition(null);
 		return matchRepository.save(match);
 	}
 
@@ -324,6 +328,10 @@ public class TournamentMatchService {
 		return ResultTrend.EMPATE;
 	}
 
+	private MatchPhase effectivePhase(Match match) {
+		return match.getPhase() == null ? MatchPhase.REGULAR : match.getPhase();
+	}
+
 	private TournamentMatchResponse toResponse(Long tournamentId, Match match) {
 		TournamentTeam homeTournamentTeam = getTournamentTeamByTeamId(tournamentId, match.getHomeTeam().getId());
 		TournamentTeam awayTournamentTeam = getTournamentTeamByTeamId(tournamentId, match.getAwayTeam().getId());
@@ -353,7 +361,10 @@ public class TournamentMatchService {
 				match.getStatus(),
 				match.getHomeGoals(),
 				match.getAwayGoals(),
-				match.getResultTrend()
+				match.getResultTrend(),
+				effectivePhase(match),
+				match.getKnockoutRound(),
+				match.getBracketPosition()
 		);
 	}
 }

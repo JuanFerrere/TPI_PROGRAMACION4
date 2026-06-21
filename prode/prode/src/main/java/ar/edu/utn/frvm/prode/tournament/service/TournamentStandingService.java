@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.prode.tournament.service;
 
 import ar.edu.utn.frvm.prode.common.exception.ResourceNotFoundException;
 import ar.edu.utn.frvm.prode.match.entity.Match;
+import ar.edu.utn.frvm.prode.match.entity.MatchPhase;
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
 import ar.edu.utn.frvm.prode.match.repository.MatchRepository;
 import ar.edu.utn.frvm.prode.tournament.dto.StandingRowResponse;
@@ -82,6 +83,9 @@ public class TournamentStandingService {
 		List<Match> finishedMatches = matchRepository
 				.findByTournamentIdAndStatusOrderByStartTimeAsc(tournamentId, MatchStatus.FINALIZADO);
 		for (Match match : finishedMatches) {
+			if (!countsForRegularStandings(match)) {
+				continue;
+			}
 			if (match.getHomeGoals() == null || match.getAwayGoals() == null) {
 				continue;
 			}
@@ -95,6 +99,16 @@ public class TournamentStandingService {
 		}
 
 		return buildResponse(tournament, standingByTeam.values());
+	}
+
+	private boolean countsForRegularStandings(Match match) {
+		/*
+		 * La tabla deportiva representa la fase regular; los partidos de eliminacion
+		 * directa no deben modificar la clasificacion de grupos o liga. Se acepta
+		 * phase null como REGULAR para conservar los partidos ya existentes antes de
+		 * incorporar metadata de eliminatorias.
+		 */
+		return match.getPhase() == null || match.getPhase() == MatchPhase.REGULAR;
 	}
 
 	private TournamentStandingsResponse buildResponse(Tournament tournament, Collection<TeamStanding> standings) {

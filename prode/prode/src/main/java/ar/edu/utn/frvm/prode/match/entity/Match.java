@@ -87,6 +87,31 @@ public class Match {
 	@Column(length = 20) // Puede quedar null hasta la etapa de resultados.
 	private ResultTrend resultTrend;
 
+	/**
+	 * Distingue si el partido pertenece a la fase regular o a una eliminatoria.
+	 *
+	 * Se permite null para compatibilidad con partidos ya existentes en la base:
+	 * logicamente null se interpreta como REGULAR. Esta marca evita que, cuando
+	 * existan partidos eliminatorios, la tabla deportiva de grupos/liga se contamine
+	 * con resultados de eliminacion directa.
+	 */
+	@Enumerated(EnumType.STRING)
+	@Column(length = 20)
+	private MatchPhase phase;
+
+	/**
+	 * Ronda de eliminacion directa. Queda null para partidos REGULAR.
+	 */
+	@Enumerated(EnumType.STRING)
+	@Column(length = 30)
+	private KnockoutRound knockoutRound;
+
+	/**
+	 * Posicion del partido dentro de una llave eliminatoria. Queda null para fase regular.
+	 */
+	@Column
+	private Integer bracketPosition;
+
 	@Column(nullable = false, updatable = false) // Instante automatico de creacion, no editable.
 	private Instant createdAt;
 
@@ -127,6 +152,9 @@ public class Match {
 	public void prePersist() {
 		if (this.status == null) {
 			this.status = MatchStatus.POR_JUGARSE;
+		}
+		if (this.phase == null) {
+			this.phase = MatchPhase.REGULAR;
 		}
 		Instant now = Instant.now();
 		this.createdAt = now;

@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.prode.tournament.dto;
 
+import ar.edu.utn.frvm.prode.match.entity.KnockoutRound;
+import ar.edu.utn.frvm.prode.match.entity.MatchPhase;
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
 import ar.edu.utn.frvm.prode.match.entity.ResultTrend;
 
@@ -25,6 +27,9 @@ import java.time.Instant;
  * @param homeGoals goles reales del local, si ya existe resultado.
  * @param awayGoals goles reales del visitante, si ya existe resultado.
  * @param resultTrend tendencia real del resultado, si ya existe resultado.
+ * @param phase fase deportiva del partido.
+ * @param knockoutRound ronda eliminatoria, si aplica.
+ * @param bracketPosition posicion dentro de la llave, si aplica.
  */
 public record TournamentMatchResponse(
 		Long id,
@@ -43,6 +48,9 @@ public record TournamentMatchResponse(
 		MatchStatus status,
 		Integer homeGoals,
 		Integer awayGoals,
-		ResultTrend resultTrend
+		ResultTrend resultTrend,
+		MatchPhase phase,
+		KnockoutRound knockoutRound,
+		Integer bracketPosition
 ) {
 }
