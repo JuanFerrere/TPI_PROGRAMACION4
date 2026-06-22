@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router";
 import App from "./App.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import AdminTournamentDetailPage from "./pages/admin/AdminTournamentDetailPage.jsx";
+import AdminTournamentKnockoutPage from "./pages/admin/AdminTournamentKnockoutPage.jsx";
 import AdminTournamentResultsPage from "./pages/admin/AdminTournamentResultsPage.jsx";
 import AdminTournamentSchedulePage from "./pages/admin/AdminTournamentSchedulePage.jsx";
 import AdminTournamentTeamsPage from "./pages/admin/AdminTournamentTeamsPage.jsx";
@@ -16,6 +17,7 @@ import PredictionsPage from "./pages/PredictionsPage.jsx";
 import UserDashboard from "./pages/UserDashboard.jsx";
 import RankingPage from "./pages/RankingPage.jsx";
 import TournamentHomePage from "./pages/TournamentHomePage.jsx";
+import KnockoutBracketPage from "./pages/KnockoutBracketPage.jsx";
 import TournamentMatchesPage from "./pages/TournamentMatchesPage.jsx";
 import TournamentPredictionsPage from "./pages/TournamentPredictionsPage.jsx";
 import TournamentRankingPage from "./pages/TournamentRankingPage.jsx";
@@ -52,6 +54,10 @@ createRoot(document.getElementById("root")).render(
           path="/tournaments/:tournamentId/standings"
           element={<StandingsPage />}
         />
+        <Route
+          path="/tournaments/:tournamentId/knockout"
+          element={<KnockoutBracketPage />}
+        />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/tournaments" element={<AdminTournamentsPage />} />
         <Route
@@ -69,6 +75,10 @@ createRoot(document.getElementById("root")).render(
         <Route
           path="/admin/tournaments/:tournamentId/results"
           element={<AdminTournamentResultsPage />}
+        />
+        <Route
+          path="/admin/tournaments/:tournamentId/knockout"
+          element={<AdminTournamentKnockoutPage />}
         />
         <Route path="/admin/teams" element={<AdminTeamsPage />} />
       </Routes>

@@ -142,6 +142,19 @@ function TournamentHomePage() {
                   Ver tabla
                 </Button>
               </Card>
+
+              <Card className="tournament-card">
+                <Badge size="sm" variant="amber">Eliminatorias</Badge>
+                <h2>Llave eliminatoria</h2>
+                <p>Consulta cruces, resultados y ganadores del torneo.</p>
+                <Button
+                  fullWidth
+                  onClick={() => navigate(`/tournaments/${tournamentId}/knockout`)}
+                  variant="secondary"
+                >
+                  Ver llave
+                </Button>
+              </Card>
             </section>
           </>
         )}

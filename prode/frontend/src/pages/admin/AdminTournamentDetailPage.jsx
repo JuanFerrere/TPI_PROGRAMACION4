@@ -27,6 +27,12 @@ const secciones = [
     path: "results",
     enabled: true,
   },
+  {
+    title: "Eliminatorias",
+    description: "Genera la llave y avanza rondas.",
+    path: "knockout",
+    enabled: true,
+  },
 ];
 
 const formatoLabel = {
@@ -187,7 +193,7 @@ function AdminTournamentDetailPage() {
                     }
                     variant="secondary"
                   >
-                    Gestionar
+                    {seccion.path === "knockout" ? "Administrar llave" : "Gestionar"}
                   </Button>
                 </Card>
               ))}
