@@ -1,8 +1,10 @@
-# Prode
+# Prode - Backend
 
-API REST backend para una plataforma de pronosticos deportivos tipo Prode.
+API REST para un sistema Prode full-stack desarrollado como Trabajo Practico
+Integrador de Programacion 4, UTN FRVM.
 
-El proyecto esta desarrollado como trabajo practico de Programacion 4. Actualmente llega hasta la **Etapa 6: grupos privados y ranking por grupo**.
+El backend administra torneos deportivos, equipos, fechas, partidos,
+pronosticos, ranking de usuarios, tabla deportiva y eliminatorias por torneo.
 
 ## Integrantes
 
@@ -11,1225 +13,330 @@ El proyecto esta desarrollado como trabajo practico de Programacion 4. Actualmen
 - Rochietti, Geremias.
 - Acosta, Mateo.
 
-## Tecnologias usadas
+## Stack
 
 - Java 21.
-- Maven.
-- Spring Boot 3.4.12.
+- Spring Boot 3.4.x.
+- Maven Wrapper.
+- PostgreSQL.
 - Spring Web.
 - Spring Data JPA.
-- PostgreSQL Driver.
-- Lombok.
 - Spring Security.
-- Validation.
 - JWT con JJWT.
+- BCrypt.
+- Validation.
+- Lombok.
 - dotenv-java.
 
-## Requisitos para ejecutar
+## Requisitos
 
-- JDK 21 instalado.
-- IntelliJ IDEA.
-- PostgreSQL instalado y en ejecucion.
-- Base de datos `prode_db` creada.
-- Archivo `.env` local creado a partir de `.env.example`.
+- JDK 21.
+- PostgreSQL iniciado.
+- Base de datos `prode_db`.
+- Archivo local `.env` en `prode/prode`.
 - Maven Wrapper incluido en el proyecto.
 
-## Crear la base PostgreSQL `prode_db`
+## Variables de entorno
 
-1. Abrir pgAdmin4.
-2. Conectarse al servidor local de PostgreSQL.
-3. Crear una base de datos llamada `prode_db`.
-4. Dejar como owner al usuario de PostgreSQL que se usa en `.env`.
-
-## Configuracion con variables de entorno
-
-El archivo `.env` guarda valores sensibles o propios de cada computadora. No debe subirse al repositorio.
+El archivo `.env` no debe subirse al repositorio. Guarda credenciales y secretos
+locales.
 
 Ejemplo:
 
 ```env
 DB_URL=jdbc:postgresql://localhost:5432/prode_db
 DB_USERNAME=postgres
-DB_PASSWORD=TU_PASSWORD_REAL_DE_POSTGRES
+DB_PASSWORD=TU_PASSWORD
 
 JWT_SECRET=UNA_CLAVE_LARGA_Y_SECRETA_DE_AL_MENOS_32_CARACTERES
 JWT_EXPIRATION_MS=86400000
 
 APP_ADMIN_USERNAME=admin
 APP_ADMIN_EMAIL=admin@prode.local
-APP_ADMIN_PASSWORD=UNA_PASSWORD_SEGURA_PARA_EL_ADMIN
+APP_ADMIN_PASSWORD=Admin1234!
 ```
 
-`application.properties` usa placeholders como `${DB_PASSWORD}` para leer esos valores sin hardcodear secretos.
+`application.properties` importa `.env` de forma opcional con:
 
-El proyecto importa `.env` de forma opcional con `spring.config.import=optional:file:.env[.properties]`. Esto permite que la aplicacion y los tests resuelvan las mismas variables locales. Si `.env` no existe, Spring intenta leer variables reales del sistema operativo.
-
-## Ejecutar desde IntelliJ
-
-1. Abrir como proyecto Maven la carpeta:
-
-```text
-C:\Users\Juani Ferrere\Desktop\TPI PROGRAMACION\prode\prode
+```properties
+spring.config.import=optional:file:.env[.properties]
 ```
 
-2. Crear `.env` en la raiz del proyecto.
-3. Verificar que PostgreSQL este iniciado.
-4. Verificar que exista la base `prode_db`.
-5. Ejecutar la clase principal:
+## Ejecutar backend
 
-```text
-src/main/java/ar/edu/utn/frvm/prode/ProdeApplication.java
+Desde `prode/prode`:
+
+```powershell
+.\mvnw.cmd spring-boot:run
 ```
 
-6. La API queda disponible en:
+La API queda disponible en:
 
 ```text
 http://localhost:8080
 ```
 
-## Etapa 1 - Base del proyecto
+## Ejecutar tests
 
-Se preparo el proyecto Spring Boot, la conexion a PostgreSQL, variables de entorno, `.env.example`, `.gitignore`, estructura de paquetes y README inicial.
+Desde `prode/prode`:
 
-## Etapa 2 - Auth, usuarios, roles y JWT
-
-Se implemento:
-
-- Entidad `User`.
-- Enum `Role` con valores `USER` y `ADMIN`.
-- Registro de usuarios.
-- Login de usuarios.
-- Generacion de JWT.
-- Filtro para autenticar requests con header `Authorization`.
-- Endpoint protegido `GET /api/auth/me`.
-- Admin inicial precargado desde variables de entorno.
-- Contrasenas con BCrypt.
-- Manejo global inicial de errores.
-- Endpoint publico `GET /api/health`.
-
-JWT es un token firmado que el cliente envia en cada request protegida. El servidor valida la firma y reconstruye el usuario autenticado sin guardar sesion.
-
-## Etapa 3 - Equipos, Fechas y Partidos
-
-En esta etapa se implemento el nucleo inicial del dominio deportivo.
-
-### Team
-
-`Team` representa un equipo participante del Prode.
-
-Reglas principales:
-
-- Se guarda en la tabla `teams`.
-- Tiene `id`, `name` y `createdAt`.
-- `name` es obligatorio y unico.
-- `createdAt` se completa automaticamente al crear.
-- No se puede eliminar un equipo si esta asociado a un partido como local o visitante.
-
-### MatchDay
-
-`MatchDay` representa una fecha o jornada.
-
-Reglas principales:
-
-- Se guarda en la tabla `match_days`.
-- Tiene `id`, `name`, `status` y `createdAt`.
-- `name` es obligatorio y unico.
-- Se crea con estado `PROGRAMADA`.
-- El cliente no edita el estado manualmente.
-- El backend recalcula el estado segun sus partidos.
-- La respuesta no incluye una lista de partidos para evitar respuestas gigantes o recursividad JSON.
-
-Estados de `MatchDayStatus`:
-
-- `PROGRAMADA`: estado inicial de una fecha.
-- `EN_JUEGO`: al menos un partido de la fecha esta en juego.
-- `FINALIZADA`: todos los partidos de la fecha terminaron.
-
-### Match
-
-`Match` representa un partido.
-
-Reglas principales:
-
-- Se guarda en la tabla `matches`.
-- Pertenece a una fecha mediante `matchDay`.
-- Tiene un equipo local `homeTeam`.
-- Tiene un equipo visitante `awayTeam`.
-- Local y visitante deben ser equipos distintos.
-- `startTime` es obligatorio y se maneja como `Instant` en UTC.
-- Se crea con estado `POR_JUGARSE`.
-- Solo se puede modificar si esta `POR_JUGARSE`.
-- Solo se puede eliminar si esta `POR_JUGARSE`.
-- No se puede modificar si ya tiene pronosticos asociados.
-- No se puede eliminar si ya tiene pronosticos asociados.
-- Solo se puede pasar a `EN_JUEGO` si esta `POR_JUGARSE`.
-- Al iniciar un partido, la fecha contenedora se recalcula automaticamente.
-- `homeGoals`, `awayGoals` y `resultTrend` pueden quedar `null` en esta etapa.
-
-Estados de `MatchStatus`:
-
-- `POR_JUGARSE`: partido todavia no iniciado.
-- `EN_JUEGO`: partido iniciado por un ADMIN.
-- `FINALIZADO`: partido terminado; se usara en etapa de resultados.
-
-`ResultTrend`:
-
-- `LOCAL`: gana el equipo local.
-- `EMPATE`: empate.
-- `VISITANTE`: gana el equipo visitante.
-
-En esta etapa queda preparado para resultados futuros, pero todavia no se cargan resultados reales ni puntuacion.
-
-## Etapa 4 - Pronosticos
-
-En esta etapa se implemento el sistema de pronosticos para partidos.
-
-Un pronostico representa lo que un usuario cree que va a pasar en un partido: goles del local y goles del visitante. A partir de esos goles, el backend calcula automaticamente la tendencia:
-
-- `LOCAL`: el usuario pronostico que gana el local.
-- `EMPATE`: el usuario pronostico empate.
-- `VISITANTE`: el usuario pronostico que gana el visitante.
-
-Reglas principales:
-
-- Cada pronostico pertenece a un usuario autenticado.
-- Cada pronostico pertenece a un partido.
-- Un usuario solo puede tener un pronostico por partido.
-- Si el usuario vuelve a enviar un pronostico para el mismo partido, se actualiza el existente.
-- Esto se llama `upsert`: crear si no existe, actualizar si ya existe.
-- No se permiten goles negativos.
-- Solo se puede pronosticar un partido en estado `POR_JUGARSE`.
-- No se puede crear ni modificar un pronostico desde 30 minutos antes del inicio del partido.
-- La hora usada para validar el bloqueo es la hora del servidor con `Instant.now()`, no una hora enviada por el cliente.
-- Los pronosticos de otros usuarios solo se pueden ver cuando ya cerro el periodo de carga.
-- `points` inicia en `0` y queda preparado para Etapa 5.
-- `exactHit` inicia en `false` y queda preparado para Etapa 5.
-
-### Bloqueo de 30 minutos
-
-La regla de bloqueo se calcula asi:
-
-```text
-horaLimite = startTime del partido - 30 minutos
+```powershell
+.\mvnw.cmd test
 ```
 
-Si la hora actual del servidor es igual o posterior a `horaLimite`, el backend rechaza la creacion o modificacion del pronostico.
+## Arquitectura general
 
-Ejemplo:
+El backend esta organizado por feature-package:
 
-```text
-startTime = 2026-06-20T19:00:00Z
-horaLimite = 2026-06-20T18:30:00Z
-```
+- `auth`
+- `user`
+- `team`
+- `matchday`
+- `match`
+- `prediction`
+- `ranking`
+- `group`
+- `tournament`
+- `common`
+- `config`
+- `security`
+- `seed`
 
-A partir de `18:30:00Z`, el pronostico queda bloqueado.
+Los DTOs se implementan como `record`. Las entidades JPA usan Lombok con
+`@Getter`, `@Setter` y `@Entity`. Los controllers exponen endpoints REST y la
+seguridad se aplica con `@PreAuthorize`.
 
-## Etapa 5 - Resultados, puntos y ranking global
+## Modelo por torneos
 
-En esta etapa se cierra el ciclo de vida del partido: se carga el resultado real, se calculan los puntos de todos los pronosticos y se arma el ranking global.
+El flujo principal actual usa `tournamentId`.
 
-### Flujo de un partido
+Cada torneo puede tener:
 
-```text
-POR_JUGARSE  ->  EN_JUEGO  ->  FINALIZADO
-   crear         /start         /result
-```
+- formato `LEAGUE` o `GROUPS`;
+- equipos asociados;
+- grupos opcionales por equipo;
+- fechas propias;
+- partidos propios;
+- resultados propios;
+- pronosticos propios;
+- ranking propio;
+- tabla deportiva propia;
+- llave eliminatoria propia.
 
-- `PATCH /api/matches/{id}/start`: el ADMIN inicia el partido (pasa a `EN_JUEGO`).
-- `PATCH /api/matches/{id}/result`: el ADMIN carga el resultado real (pasa a `FINALIZADO`).
+El modelo de torneos extiende el dominio existente: `Match` y `MatchDay`
+pertenecen a un torneo. La capa `tournament` reutiliza entidades y repositorios
+existentes.
 
-### Cargar resultado
-
-El ADMIN envia solo los goles reales:
-
-```json
-{
-  "homeGoals": 2,
-  "awayGoals": 1
-}
-```
-
-Cuando se carga el resultado, el backend hace todo lo siguiente de forma automatica:
-
-1. Valida que el partido este `EN_JUEGO`.
-2. Valida que la fecha contenedora este `EN_JUEGO`.
-3. Calcula la tendencia real (`resultTrend`): `LOCAL`, `EMPATE` o `VISITANTE`.
-4. Guarda `homeGoals`, `awayGoals` y `resultTrend`.
-5. Cambia el partido a `FINALIZADO`.
-6. Calcula los puntos de **todos** los pronosticos del partido.
-7. Actualiza `exactHit` de cada pronostico.
-8. Recalcula el estado de la fecha contenedora.
-
-Importante: el cliente nunca manda la tendencia ni los puntos. El backend no confia en calculos del cliente; solo recibe los goles reales.
-
-### Regla de puntuacion
-
-Comparando el pronostico del usuario contra el resultado real:
-
-- **3 puntos** si acierta el resultado exacto (mismos goles de local y visitante).
-- **1 punto** si no acierta el exacto pero si la tendencia (quien gano o si fue empate).
-- **0 puntos** si no acierta ni el exacto ni la tendencia.
-
-Ejemplo con resultado real `2-1` (tendencia `LOCAL`):
-
-| Pronostico | Tendencia pronosticada | Puntos | exactHit |
-| ---------- | ---------------------- | ------ | -------- |
-| 2-1        | LOCAL                  | 3      | true     |
-| 1-0        | LOCAL                  | 1      | false    |
-| 0-1        | VISITANTE              | 0      | false    |
-
-- `exactHit` indica si el usuario acerto el marcador exacto. Solo es `true` cuando suma 3 puntos.
-- `resultTrend` es la tendencia REAL del partido, calculada por el backend a partir de los goles.
-
-### Ranking global
-
-```text
-GET /api/rankings/global
-```
-
-- Disponible para cualquier usuario autenticado.
-- Suma los puntos de todos los pronosticos de cada usuario.
-- Cuenta los aciertos exactos (`exactHits`) y la cantidad de pronosticos (`predictionsCount`).
-- Ordena por: mas puntos primero, luego mas aciertos exactos y, si persiste el empate, prioridad al usuario cuyo pronostico mas antiguo fue cargado antes.
-- Asigna la posicion (`position`) empezando en 1.
-- Si todavia no hay pronosticos, devuelve una lista vacia (no es un error).
-
-Ejemplo de respuesta:
-
-```json
-[
-  {
-    "position": 1,
-    "userId": 2,
-    "username": "juan",
-    "totalPoints": 9,
-    "exactHits": 2,
-    "predictionsCount": 5
-  }
-]
-```
-
-## Por que se usa Instant/UTC
-
-Los partidos usan `Instant` porque representa un punto exacto del tiempo en UTC. Esto evita errores cuando distintas computadoras o servidores tienen zonas horarias distintas.
-
-Ejemplo valido para Insomnia:
-
-```json
-{
-  "startTime": "2026-06-20T19:00:00Z"
-}
-```
-
-La `Z` significa UTC.
-
-Para defensa: el bloqueo de pronosticos se valida con la hora del servidor (`Instant.now()`), comparada contra el `startTime` persistido del partido menos 30 minutos. El backend no confia en una fecha u hora enviada por el cliente para decidir si un pronostico esta bloqueado.
-
-## Seguridad por roles
-
-El proyecto usa JWT y Spring Security.
+## Auth y roles
 
 Endpoints publicos:
 
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `GET /api/health`
+| Metodo | Endpoint             | Descripcion |
+| ------ | -------------------- | ----------- |
+| POST   | `/api/auth/register` | Registrar usuario |
+| POST   | `/api/auth/login`    | Login y obtencion de JWT |
+| GET    | `/api/health`        | Health check |
 
-Endpoints para cualquier usuario autenticado (`USER` o `ADMIN`):
+Endpoints autenticados:
 
-- `GET /api/auth/me`
-- `GET /api/teams`
-- `GET /api/teams/{id}`
-- `GET /api/match-days`
-- `GET /api/match-days/{id}`
-- `GET /api/matches`
-- `GET /api/matches/{id}`
-- `POST /api/predictions/matches/{matchId}`
-- `GET /api/predictions/me`
-- `GET /api/predictions/matches/{matchId}`
-- `GET /api/rankings/global`
+| Metodo | Endpoint       | Descripcion |
+| ------ | -------------- | ----------- |
+| GET    | `/api/auth/me` | Usuario autenticado |
 
-Endpoints solo `ADMIN`:
+Roles:
 
-- `POST /api/teams`
-- `DELETE /api/teams/{id}`
-- `POST /api/match-days`
-- `PUT /api/match-days/{id}`
-- `DELETE /api/match-days/{id}`
-- `POST /api/matches`
-- `PUT /api/matches/{id}`
-- `PATCH /api/matches/{id}/start`
-- `PATCH /api/matches/{id}/result`
-- `DELETE /api/matches/{id}`
+- `USER`: usuario comun que pronostica y consulta rankings/tablas.
+- `ADMIN`: administra torneos, equipos, fixture, resultados y eliminatorias.
 
-La seguridad administrativa se aplica con `@PreAuthorize("hasRole('ADMIN')")`. Los usuarios se cargan con autoridad `ROLE_ADMIN`, por eso `hasRole('ADMIN')` coincide con la configuracion real.
+Los endpoints protegidos reciben:
 
-## HTTPS en produccion
+```text
+Authorization: Bearer TOKEN
+```
 
-Para la demo local universitaria la API se ejecuta por HTTP en `localhost` para no complicar la ejecucion en IntelliJ e Insomnia.
+## Endpoints principales por torneo
 
-En un ambiente productivo, la API deberia publicarse detras de HTTPS para proteger credenciales, tokens JWT y datos enviados por los usuarios. Esta configuracion queda fuera del alcance del TPI local y no se fuerza desde Spring Boot para no romper la demo.
+### Torneos
 
-## Formato de errores
+| Metodo | Endpoint | Rol | Descripcion |
+| ------ | -------- | --- | ----------- |
+| GET | `/api/tournaments` | Autenticado | Lista torneos |
+| GET | `/api/tournaments/available` | Autenticado | Torneos disponibles para usuarios |
+| GET | `/api/tournaments/{tournamentId}` | Autenticado | Detalle del torneo |
+| POST | `/api/tournaments` | ADMIN | Crear torneo |
+| PATCH | `/api/tournaments/{tournamentId}/status` | ADMIN | Cambiar estado |
+| PATCH | `/api/tournaments/{tournamentId}/format` | ADMIN | Cambiar formato |
 
-Los errores se devuelven con una estructura uniforme:
+### Equipos por torneo
+
+| Metodo | Endpoint | Rol |
+| ------ | -------- | --- |
+| GET | `/api/tournaments/{tournamentId}/teams` | Autenticado |
+| POST | `/api/tournaments/{tournamentId}/teams` | ADMIN |
+| POST | `/api/tournaments/{tournamentId}/teams/bulk` | ADMIN |
+| PATCH | `/api/tournaments/{tournamentId}/teams/{tournamentTeamId}/group` | ADMIN |
+| DELETE | `/api/tournaments/{tournamentId}/teams/{tournamentTeamId}` | ADMIN |
+
+### Fechas por torneo
+
+| Metodo | Endpoint | Rol |
+| ------ | -------- | --- |
+| GET | `/api/tournaments/{tournamentId}/match-days` | Autenticado |
+| POST | `/api/tournaments/{tournamentId}/match-days` | ADMIN |
+| POST | `/api/tournaments/{tournamentId}/match-days/bulk` | ADMIN |
+| DELETE | `/api/tournaments/{tournamentId}/match-days/{matchDayId}` | ADMIN |
+
+### Partidos y resultados por torneo
+
+| Metodo | Endpoint | Rol |
+| ------ | -------- | --- |
+| GET | `/api/tournaments/{tournamentId}/matches` | Autenticado |
+| POST | `/api/tournaments/{tournamentId}/matches` | ADMIN |
+| POST | `/api/tournaments/{tournamentId}/matches/bulk` | ADMIN |
+| PUT | `/api/tournaments/{tournamentId}/matches/{matchId}/result` | ADMIN |
+| DELETE | `/api/tournaments/{tournamentId}/matches/{matchId}` | ADMIN |
+
+### Pronosticos por torneo
+
+| Metodo | Endpoint | Rol |
+| ------ | -------- | --- |
+| GET | `/api/tournaments/{tournamentId}/predictions/me` | Autenticado |
+| POST | `/api/tournaments/{tournamentId}/predictions/matches/{matchId}` | Autenticado |
+
+### Ranking por torneo
+
+| Metodo | Endpoint | Rol |
+| ------ | -------- | --- |
+| GET | `/api/tournaments/{tournamentId}/rankings/global` | Autenticado |
+
+### Tabla deportiva
+
+| Metodo | Endpoint | Rol |
+| ------ | -------- | --- |
+| GET | `/api/tournaments/{tournamentId}/standings` | Autenticado |
+
+### Eliminatorias
+
+| Metodo | Endpoint | Rol | Descripcion |
+| ------ | -------- | --- | ----------- |
+| GET | `/api/tournaments/{tournamentId}/knockout` | Autenticado | Consultar llave |
+| POST | `/api/tournaments/{tournamentId}/knockout/generate` | ADMIN | Generar primera ronda |
+| POST | `/api/tournaments/{tournamentId}/knockout/advance` | ADMIN | Avanzar a siguiente ronda |
+
+## Reglas de negocio principales
+
+### Pronosticos
+
+- Cada usuario tiene como maximo un pronostico por partido.
+- Si vuelve a pronosticar el mismo partido, se actualiza.
+- Solo se puede pronosticar partidos `POR_JUGARSE`.
+- Se bloquea la carga cuando faltan 30 minutos o menos para el inicio.
+- Los puntos se calculan al cargar el resultado real.
+
+### Puntaje
+
+| Caso | Puntos |
+| ---- | ------ |
+| Marcador exacto | 3 |
+| Tendencia correcta | 1 |
+| Error | 0 |
+
+La logica esta aislada en `PredictionScoringService`.
+
+### Ranking
+
+El ranking ordena por:
+
+1. puntos totales descendente;
+2. aciertos exactos descendente;
+3. pronostico mas temprano;
+4. `userId` como desempate estable.
+
+### Standings
+
+La tabla deportiva de equipos ordena por:
+
+1. puntos;
+2. diferencia de gol;
+3. goles a favor;
+4. nombre del equipo.
+
+La tabla representa la fase regular. Por eso solo cuenta:
+
+- partidos con `phase = REGULAR`;
+- partidos con `phase = null`, por compatibilidad con datos previos.
+
+No cuenta partidos `KNOCKOUT`.
+
+### Eliminatorias
+
+`Match` tiene metadata de eliminatorias:
+
+- `phase`: `REGULAR` o `KNOCKOUT`;
+- `knockoutRound`: `ROUND_OF_16`, `QUARTER_FINAL`, `SEMI_FINAL`, `FINAL`;
+- `bracketPosition`;
+- `winnerTeam`.
+
+Reglas:
+
+- La generacion toma clasificados desde standings.
+- `qualifiersCount` soportado: 4, 8 o 16.
+- En `LEAGUE` cruza 1 vs N, 2 vs N-1.
+- En `GROUPS` con 2 grupos y 2 clasificados cruza A1 vs B2 y B1 vs A2.
+- Un partido `KNOCKOUT` no puede terminar empatado.
+- Al cargar resultado `KNOCKOUT`, el backend setea `winnerTeam`.
+- `advance` genera solo la siguiente ronda usando ganadores ordenados por
+  `bracketPosition`.
+- No se puede avanzar desde `FINAL`.
+- No se puede avanzar si falta finalizar algun partido o falta `winnerTeam`.
+- No se permite corregir una ronda anterior si ya existe una ronda posterior.
+
+## Seguridad y datos sensibles
+
+No se debe commitear:
+
+- `.env`;
+- secretos;
+- `target`;
+- dumps de base de datos;
+- archivos locales del IDE.
+
+`.gitignore` ya excluye esos archivos.
+
+## Errores
+
+Los errores se devuelven con formato uniforme:
 
 ```json
 {
-  "timestamp": "2026-06-02T12:00:00Z",
+  "timestamp": "2026-06-21T12:00:00Z",
   "status": 400,
   "error": "Bad Request",
-  "message": "No se puede modificar un partido que ya comenzo",
-  "path": "/api/matches/1"
+  "message": "No se permite empate en un partido eliminatorio",
+  "path": "/api/tournaments/1/matches/10/result"
 }
 ```
 
-## Pruebas de Auth en Insomnia
+El frontend muestra `message` cuando existe.
 
-### Registrar usuario
+## Comandos utiles
 
-```http
-POST http://localhost:8080/api/auth/register
+Backend:
+
+```powershell
+cd prode/prode
+.\mvnw.cmd spring-boot:run
 ```
 
-Body:
+Tests:
 
-```json
-{
-  "username": "juan",
-  "email": "juan@test.com",
-  "password": "Password123!"
-}
+```powershell
+cd prode/prode
+.\mvnw.cmd test
 ```
 
-Esperado: `201 Created`, token JWT y datos publicos del usuario.
-
-### Login de usuario
+Health check:
 
 ```http
-POST http://localhost:8080/api/auth/login
+GET http://localhost:8080/api/health
 ```
-
-Body:
-
-```json
-{
-  "usernameOrEmail": "juan",
-  "password": "Password123!"
-}
-```
-
-Esperado: token JWT para usar en endpoints protegidos.
-
-### Login del admin precargado
-
-El admin se configura en `.env` con `APP_ADMIN_USERNAME`, `APP_ADMIN_EMAIL` y `APP_ADMIN_PASSWORD`.
-
-```http
-POST http://localhost:8080/api/auth/login
-```
-
-Body de ejemplo si `APP_ADMIN_PASSWORD=Admin1234!`:
-
-```json
-{
-  "usernameOrEmail": "admin",
-  "password": "Admin1234!"
-}
-```
-
-### Usar Bearer Token
-
-En Insomnia, agregar este header en cada request protegida:
-
-```text
-Authorization: Bearer PEGAR_TOKEN_AQUI
-```
-
-### Probar endpoint protegido
-
-```http
-GET http://localhost:8080/api/auth/me
-```
-
-Esperado: datos publicos del usuario autenticado. Sin token debe responder `401 Unauthorized`.
-
-## Pruebas en Insomnia
-
-Antes de probar endpoints protegidos:
-
-1. Ejecutar la app.
-2. Loguearse como ADMIN.
-3. Copiar el token.
-4. En cada request protegida usar header:
-
-```text
-Authorization: Bearer TOKEN_ADMIN
-```
-
-### 1. Crear equipo Boca
-
-```http
-POST http://localhost:8080/api/teams
-```
-
-Body:
-
-```json
-{
-  "name": "Boca Juniors"
-}
-```
-
-Esperado: `201 Created` y equipo creado.
-
-### 2. Crear equipo River
-
-```http
-POST http://localhost:8080/api/teams
-```
-
-Body:
-
-```json
-{
-  "name": "River Plate"
-}
-```
-
-### 3. Listar equipos
-
-```http
-GET http://localhost:8080/api/teams
-```
-
-Esperado: lista de equipos.
-
-### 4. Buscar equipo por nombre
-
-```http
-GET http://localhost:8080/api/teams?name=boca
-```
-
-Esperado: lista filtrada.
-
-### 5. Crear fecha
-
-```http
-POST http://localhost:8080/api/match-days
-```
-
-Body:
-
-```json
-{
-  "name": "Fecha 1 - Fase de Grupos"
-}
-```
-
-Esperado: fecha creada con `status` igual a `PROGRAMADA`.
-
-### 6. Listar fechas
-
-```http
-GET http://localhost:8080/api/match-days
-```
-
-Esperado: lista de fechas.
-
-### 7. Crear partido
-
-```http
-POST http://localhost:8080/api/matches
-```
-
-Body:
-
-```json
-{
-  "matchDayId": 1,
-  "homeTeamId": 1,
-  "awayTeamId": 2,
-  "startTime": "2026-06-20T19:00:00Z"
-}
-```
-
-Esperado: partido creado con `status` igual a `POR_JUGARSE`.
-
-### 8. Validar local y visitante iguales
-
-```http
-POST http://localhost:8080/api/matches
-```
-
-Body:
-
-```json
-{
-  "matchDayId": 1,
-  "homeTeamId": 1,
-  "awayTeamId": 1,
-  "startTime": "2026-06-20T19:00:00Z"
-}
-```
-
-Esperado: `400 Bad Request` con mensaje indicando que local y visitante no pueden ser el mismo equipo.
-
-### 9. Listar partidos
-
-```http
-GET http://localhost:8080/api/matches
-```
-
-Esperado: lista ordenada por `startTime` ascendente.
-
-### 10. Listar partidos por fecha
-
-```http
-GET http://localhost:8080/api/matches?matchDayId=1
-```
-
-Esperado: partidos de esa fecha.
-
-### 11. Iniciar partido
-
-```http
-PATCH http://localhost:8080/api/matches/1/start
-```
-
-Esperado: el partido pasa a `EN_JUEGO` y la fecha contenedora pasa a `EN_JUEGO`.
-
-### 12. Ver estado de la fecha
-
-```http
-GET http://localhost:8080/api/match-days/1
-```
-
-Esperado: `status` igual a `EN_JUEGO`.
-
-### 13. Intentar modificar partido iniciado
-
-```http
-PUT http://localhost:8080/api/matches/1
-```
-
-Body:
-
-```json
-{
-  "homeTeamId": 1,
-  "awayTeamId": 2,
-  "startTime": "2026-06-21T19:00:00Z"
-}
-```
-
-Esperado: `400 Bad Request` con mensaje indicando que no se puede modificar un partido que ya comenzo.
-
-### 14. Probar permisos con USER
-
-1. Registrar o loguearse como usuario `USER`.
-2. Usar su token.
-3. Intentar:
-
-```http
-POST http://localhost:8080/api/teams
-```
-
-Body:
-
-```json
-{
-  "name": "Independiente"
-}
-```
-
-Esperado: `403 Forbidden`.
-
-## Pruebas de Pronosticos en Insomnia
-
-Antes de probar pronosticos:
-
-1. Ejecutar la app.
-2. Registrar o loguear un usuario.
-3. Copiar el token.
-4. Usar el header:
-
-```text
-Authorization: Bearer TOKEN
-```
-
-### 1. Registrar usuario comun
-
-```http
-POST http://localhost:8080/api/auth/register
-```
-
-Body:
-
-```json
-{
-  "username": "juan",
-  "email": "juan@test.com",
-  "password": "Password123!"
-}
-```
-
-### 2. Login usuario comun
-
-```http
-POST http://localhost:8080/api/auth/login
-```
-
-Body:
-
-```json
-{
-  "usernameOrEmail": "juan",
-  "password": "Password123!"
-}
-```
-
-### 3. Crear pronostico
-
-```http
-POST http://localhost:8080/api/predictions/matches/1
-```
-
-Body:
-
-```json
-{
-  "predictedHomeGoals": 2,
-  "predictedAwayGoals": 1
-}
-```
-
-Esperado:
-
-- Se crea el pronostico.
-- `predictedTrend` queda `LOCAL`.
-- `points` queda `0`.
-- `exactHit` queda `false`.
-
-### 4. Modificar pronostico existente
-
-Volver a enviar un `POST` al mismo partido:
-
-```http
-POST http://localhost:8080/api/predictions/matches/1
-```
-
-Body:
-
-```json
-{
-  "predictedHomeGoals": 1,
-  "predictedAwayGoals": 1
-}
-```
-
-Esperado:
-
-- No se crea duplicado.
-- Se actualiza el pronostico existente.
-- `predictedTrend` queda `EMPATE`.
-
-### 5. Listar mis pronosticos
-
-```http
-GET http://localhost:8080/api/predictions/me
-```
-
-Esperado: lista de pronosticos del usuario autenticado.
-
-### 6. Filtrar mis pronosticos por estado de partido
-
-```http
-GET http://localhost:8080/api/predictions/me?matchStatus=POR_JUGARSE
-```
-
-Tambien se puede probar:
-
-```http
-GET http://localhost:8080/api/predictions/me?matchStatus=EN_JUEGO
-```
-
-```http
-GET http://localhost:8080/api/predictions/me?matchStatus=FINALIZADO
-```
-
-### 7. Intentar pronosticar partido EN_JUEGO
-
-Iniciar el partido con el endpoint administrativo:
-
-```http
-PATCH http://localhost:8080/api/matches/1/start
-```
-
-Luego intentar pronosticar:
-
-```http
-POST http://localhost:8080/api/predictions/matches/1
-```
-
-Esperado: `400 Bad Request` porque solo se pueden pronosticar partidos `POR_JUGARSE`.
-
-### 8. Intentar pronosticar cuando faltan menos de 30 minutos
-
-Crear o usar un partido cuyo `startTime` este a menos de 30 minutos de la hora actual del servidor.
-
-```http
-POST http://localhost:8080/api/predictions/matches/1
-```
-
-Esperado: `400 Bad Request` porque el periodo de carga ya esta bloqueado.
-
-### 9. Intentar ver pronosticos de terceros antes del bloqueo
-
-```http
-GET http://localhost:8080/api/predictions/matches/1
-```
-
-Esperado: `400 Bad Request` con mensaje indicando que los pronosticos estaran disponibles cuando cierre el periodo de carga.
-
-### 10. Ver pronosticos de un partido despues del bloqueo
-
-Usar un partido cuyo cierre de carga ya haya vencido.
-
-```http
-GET http://localhost:8080/api/predictions/matches/1
-```
-
-Esperado: lista de pronosticos cargados para ese partido.
-
-## Pruebas de Resultados y Ranking en Insomnia
-
-Estas pruebas cierran el ciclo completo: iniciar partido, cargar resultado, ver puntos y consultar el ranking.
-
-Preparacion sugerida:
-
-1. Login ADMIN.
-2. Crear equipos.
-3. Crear fecha.
-4. Crear partido.
-5. Login USER y crear pronostico.
-6. Login ADMIN para iniciar y finalizar el partido.
-
-### 1. Iniciar partido (ADMIN)
-
-```http
-PATCH http://localhost:8080/api/matches/1/start
-```
-
-Esperado: el partido queda `EN_JUEGO`.
-
-### 2. Cargar resultado (ADMIN)
-
-```http
-PATCH http://localhost:8080/api/matches/1/result
-```
-
-Body:
-
-```json
-{
-  "homeGoals": 2,
-  "awayGoals": 1
-}
-```
-
-Esperado:
-
-- El partido queda `FINALIZADO`.
-- `resultTrend` queda `LOCAL`.
-- `homeGoals` = 2.
-- `awayGoals` = 1.
-- La fecha contenedora estaba `EN_JUEGO` antes de aceptar el resultado y luego se recalcula automaticamente.
-
-### 3. Verificar pronostico con puntos (USER)
-
-```http
-GET http://localhost:8080/api/predictions/me
-```
-
-Esperado, segun lo que haya pronosticado el usuario para un resultado real `2-1`:
-
-- Pronostico 2-1: `points` = 3, `exactHit` = true.
-- Pronostico 1-0: `points` = 1, `exactHit` = false.
-- Pronostico 0-1: `points` = 0, `exactHit` = false.
-
-### 4. Consultar ranking global
-
-```http
-GET http://localhost:8080/api/rankings/global
-```
-
-Esperado: lista ordenada por puntos descendentes, aciertos exactos descendentes y pronostico mas antiguo como tercer desempate. Si no hay pronosticos, lista vacia.
-
-### 5. Intentar cargar resultado como USER
-
-```http
-PATCH http://localhost:8080/api/matches/1/result
-```
-
-Esperado: `403 Forbidden` porque solo ADMIN puede cargar resultados.
-
-### 6. Intentar cargar resultado en partido POR_JUGARSE
-
-Usar un partido recien creado que todavia no fue iniciado.
-
-```http
-PATCH http://localhost:8080/api/matches/2/result
-```
-
-Esperado: `400 Bad Request` con mensaje `Solo se pueden cargar resultados de partidos que estan EN_JUEGO`.
-
-### 7. Intentar cargar resultado en partido FINALIZADO
-
-Volver a cargar resultado en el partido del paso 2.
-
-```http
-PATCH http://localhost:8080/api/matches/1/result
-```
-
-Esperado: `400 Bad Request` con mensaje `No se puede cargar resultado porque el partido ya esta FINALIZADO`.
-
-## Errores comunes
-
-`401 Unauthorized`
-
-Causa: falta token, token vencido o header mal escrito.
-
-Solucion: usar `Authorization: Bearer TOKEN`.
-
-`403 Forbidden`
-
-Causa: el usuario esta autenticado, pero no tiene rol `ADMIN`.
-
-Solucion: loguearse con el admin precargado para endpoints administrativos.
-
-`400 Bad Request` al crear partido
-
-Causa posible: local y visitante tienen el mismo id, falta algun id o falta `startTime`.
-
-Solucion: enviar ids existentes y equipos distintos.
-
-`400 Bad Request` al crear pronostico
-
-Causa posible: el partido no esta `POR_JUGARSE`, faltan menos de 30 minutos para el inicio o los goles son negativos.
-
-Solucion: usar un partido pendiente, fuera del periodo bloqueado y enviar goles mayores o iguales a cero.
-
-`400 Bad Request` al ver pronosticos de un partido
-
-Causa posible: todavia no cerro el periodo de carga del partido.
-
-Solucion: esperar a que falten 30 minutos o menos para el inicio del partido.
-
-`400 Bad Request` al cargar resultado
-
-Causa posible: el partido no esta `EN_JUEGO` (todavia esta `POR_JUGARSE` o ya esta `FINALIZADO`), la fecha contenedora no esta `EN_JUEGO` o los goles son negativos.
-
-Solucion: iniciar el partido con `/start` antes de cargar el resultado, verificar que la fecha haya quedado `EN_JUEGO` y enviar goles mayores o iguales a cero.
-
-`400 Bad Request` por fecha
-
-Causa posible: `startTime` no esta en formato ISO-8601 UTC.
-
-Solucion: usar un valor como `2026-06-20T19:00:00Z`.
-
-`404 Not Found`
-
-Causa: no existe el equipo, fecha o partido solicitado.
-
-Solucion: revisar los ids creados previamente.
-
-`database "prode_db" does not exist`
-
-Causa: la base no fue creada.
-
-Solucion: crear `prode_db` en PostgreSQL.
-
-`password authentication failed for user "postgres"`
-
-Causa: `DB_PASSWORD` esta mal.
-
-Solucion: revisar `.env`.
-
-`Could not resolve placeholder`
-
-Causa: falta alguna variable de entorno o no se cargo `.env`.
-
-Solucion: crear `.env` en la raiz del proyecto o configurar variables en IntelliJ.
-
-## Explicacion para defensa oral
-
-"En esta etapa cerramos el ciclo de vida del partido. El ADMIN inicia el partido y luego carga el resultado real enviando solo los goles; el backend nunca confia en calculos del cliente. Al cargar el resultado, valida que el partido y su fecha esten EN_JUEGO, calcula la tendencia real, finaliza el partido, recalcula los puntos de todos los pronosticos asociados (3 por resultado exacto, 1 por tendencia, 0 si no acierta), actualiza el acierto exacto y recalcula el estado de la fecha. Con esos puntos acumulados se arma el ranking global, que cualquier usuario autenticado puede consultar ordenado por puntos, aciertos exactos y pronostico mas antiguo."
-
-## Etapa 6 - Grupos privados y ranking por grupo
-
-Los grupos privados permiten que un conjunto cerrado de usuarios compita entre si
-dentro de un espacio propio, separado del ranking global. Cada grupo tiene un codigo
-de invitacion unico generado por el backend: compartir ese codigo es la unica forma
-de unirse.
-
-### Que es un grupo privado
-
-Un grupo privado agrupa a usuarios que se conocen (amigos, companeros de facultad,
-familia). Solo los miembros del grupo pueden ver su detalle y su ranking. El codigo
-de invitacion es una cadena de 8 caracteres hexadecimales en mayusculas, generada
-con UUID y verificada como unica antes de guardarse. Ejemplo: `3F2504E0`.
-
-### Endpoints de grupos
-
-Todos requieren autenticacion JWT valida. El prefijo comun es `/api/groups`.
-
-**Autenticados (USER y ADMIN):**
-
-| Metodo   | Endpoint                          | Descripcion                                   |
-|----------|-----------------------------------|-----------------------------------------------|
-| POST     | /api/groups                       | Crear grupo privado                           |
-| POST     | /api/groups/join                  | Unirse a grupo por codigo de invitacion       |
-| GET      | /api/groups/me                    | Listar mis grupos                             |
-| GET      | /api/groups/{groupId}             | Ver detalle de un grupo (solo miembros)       |
-| DELETE   | /api/groups/{groupId}/members/me  | Salir de un grupo                             |
-| GET      | /api/groups/{groupId}/ranking     | Ver ranking del grupo (solo miembros)         |
-
-### Como crear un grupo
-
-```http
-POST http://localhost:8080/api/groups
-Authorization: Bearer TOKEN
-Content-Type: application/json
-
-{
-  "name": "Amigos UTN"
-}
-```
-
-Respuesta `201 Created`:
-
-```json
-{
-  "id": 1,
-  "name": "Amigos UTN",
-  "inviteCode": "3F2504E0",
-  "ownerId": 2,
-  "ownerUsername": "juan",
-  "membersCount": 1,
-  "createdAt": "2026-06-09T18:00:00Z"
-}
-```
-
-El owner queda automaticamente como primer miembro del grupo.
-
-### Como se genera el codigo de invitacion
-
-El backend toma los primeros 8 caracteres del UUID generado (sin guiones), los
-convierte a mayusculas y verifica que no exista en la base antes de guardar.
-El cliente no puede elegir ni modificar el codigo.
-
-### Como unirse a un grupo
-
-```http
-POST http://localhost:8080/api/groups/join
-Authorization: Bearer TOKEN
-Content-Type: application/json
-
-{
-  "inviteCode": "3F2504E0"
-}
-```
-
-Respuesta `200 OK` con el grupo al que se unio. Si el usuario ya pertenece al
-grupo o el codigo no existe, se devuelve un error claro.
-
-### Como listar mis grupos
-
-```http
-GET http://localhost:8080/api/groups/me
-Authorization: Bearer TOKEN
-```
-
-Devuelve lista de todos los grupos donde el usuario autenticado es miembro.
-Si no pertenece a ninguno, devuelve lista vacia (no es un error).
-
-### Como ver el detalle de un grupo
-
-```http
-GET http://localhost:8080/api/groups/{groupId}
-Authorization: Bearer TOKEN
-```
-
-Solo accesible para miembros del grupo. Devuelve nombre, codigo, owner, lista
-completa de miembros con su username y fecha de ingreso.
-
-```json
-{
-  "id": 1,
-  "name": "Amigos UTN",
-  "inviteCode": "3F2504E0",
-  "ownerId": 2,
-  "ownerUsername": "juan",
-  "membersCount": 2,
-  "members": [
-    { "userId": 2, "username": "juan", "joinedAt": "2026-06-09T18:00:00Z" },
-    { "userId": 3, "username": "benja", "joinedAt": "2026-06-09T18:05:00Z" }
-  ],
-  "createdAt": "2026-06-09T18:00:00Z"
-}
-```
-
-### Como salir de un grupo
-
-```http
-DELETE http://localhost:8080/api/groups/{groupId}/members/me
-Authorization: Bearer TOKEN
-```
-
-Devuelve `204 No Content` si salio correctamente. El owner no puede abandonar
-su propio grupo (simplificacion del TPI; la transferencia de propiedad queda
-como mejora futura).
-
-### Como consultar el ranking por grupo
-
-```http
-GET http://localhost:8080/api/groups/{groupId}/ranking
-Authorization: Bearer TOKEN
-```
-
-Solo accesible para miembros del grupo. Devuelve el ranking con solo los
-usuarios del grupo. Los puntos provienen de los pronosticos ya calculados en
-Etapa 5, no se recalculan. Todos los miembros aparecen aunque no hayan
-pronosticado (con 0 puntos).
-
-```json
-[
-  { "position": 1, "userId": 2, "username": "juan",  "totalPoints": 7, "exactHits": 2, "predictionsCount": 4 },
-  { "position": 2, "userId": 3, "username": "benja", "totalPoints": 3, "exactHits": 1, "predictionsCount": 4 }
-]
-```
-
-Orden: puntos descendente, luego aciertos exactos descendente y, si persiste el
-empate, prioridad al usuario cuyo pronostico mas antiguo fue cargado antes.
-
-### Validaciones y reglas de negocio
-
-- El nombre del grupo no puede estar vacio ni superar 100 caracteres.
-- El codigo de invitacion no puede estar vacio ni superar 50 caracteres.
-- Un usuario no puede unirse dos veces al mismo grupo.
-- Solo miembros pueden ver el detalle y el ranking del grupo.
-- El owner no puede abandonar su propio grupo.
-- Un usuario no miembro recibe error si intenta ver datos del grupo.
-
-### Pruebas en Insomnia para Etapa 6
-
-Flujo recomendado:
-
-1. Login con juan (o el admin si es que juan es admin, si no registrar usuario juan).
-2. Crear grupo:
-
-```http
-POST /api/groups
-{ "name": "Amigos UTN" }
-```
-
-3. Copiar el `inviteCode` de la respuesta.
-4. Registrar o loguearse con otro usuario, por ejemplo benja.
-5. Benja se une al grupo:
-
-```http
-POST /api/groups/join
-{ "inviteCode": "CODIGO_COPIADO" }
-```
-
-6. Verificar que ambos tienen pronosticos con puntos calculados (Etapa 5).
-7. Consultar ranking global:
-
-```http
-GET /api/rankings/global
-```
-
-8. Consultar ranking del grupo:
-
-```http
-GET /api/groups/{groupId}/ranking
-```
-
-Verificar que solo aparecen juan y benja (no otros usuarios del sistema).
-
-9. Con un tercer usuario que NO sea miembro, intentar ver el detalle:
-
-```http
-GET /api/groups/{groupId}
-```
-
-Esperado: `400 Bad Request` con mensaje `No tenes permisos para acceder a este grupo`.
-
-10. Intentar que benja se una dos veces:
-
-```http
-POST /api/groups/join
-{ "inviteCode": "CODIGO_COPIADO" }
-```
-
-Esperado: `400 Bad Request` con mensaje `El usuario ya pertenece a este grupo`.
-
-11. Intentar que juan (owner) salga del grupo:
-
-```http
-DELETE /api/groups/{groupId}/members/me
-(logueado como juan)
-```
-
-Esperado: `400 Bad Request` con mensaje `El creador del grupo no puede abandonar el grupo`.
-
-12. Que benja salga del grupo:
-
-```http
-DELETE /api/groups/{groupId}/members/me
-(logueado como benja)
-```
-
-Esperado: `204 No Content`.
-
-### Errores comunes de Etapa 6
-
-`400 Bad Request` al unirse
-
-Causa posible: el codigo de invitacion no existe o el usuario ya pertenece al grupo.
-
-Mensaje: `No existe un grupo con el codigo de invitacion indicado` o `El usuario ya pertenece a este grupo`.
-
-`400 Bad Request` al ver detalle o ranking
-
-Causa posible: el usuario no es miembro del grupo.
-
-Mensaje: `No tenes permisos para acceder a este grupo` o `No tenes permisos para ver el ranking de este grupo`.
-
-`400 Bad Request` al intentar salir siendo owner
-
-Causa posible: el usuario que intenta salir es el creador del grupo.
-
-Mensaje: `El creador del grupo no puede abandonar el grupo`.
-
-`404 Not Found`
-
-Causa: el groupId no existe en la base de datos.
-
-Mensaje: `Grupo no encontrado`.
-
-## Explicacion para defensa oral
-
-"En Etapa 6 implementamos grupos privados. Un usuario crea un grupo y el backend genera un codigo de invitacion unico usando UUID. Ese codigo se comparte manualmente con otros usuarios, que lo usan para unirse. Solo los miembros del grupo pueden ver su detalle y su ranking. El ranking del grupo reutiliza los puntos ya calculados en Etapa 5, filtra solo los miembros del grupo y aplica las mismas reglas del ranking global: puntos, aciertos exactos y pronostico mas antiguo. El owner no puede abandonar su propio grupo para mantener la integridad del sistema dentro del alcance del TPI."
-
-## Que queda preparado para futuras mejoras
-
-- Los partidos ya tienen resultado real, tendencia y estado `FINALIZADO`.
-- Los pronosticos ya tienen `points` y `exactHit` calculados automaticamente.
-- El ranking global y por grupo ya funcionan.
-- La logica de puntuacion esta aislada en `PredictionScoringService`.
-- La estructura de grupos permite agregar en el futuro: transferencia de owner, eliminacion de grupo, invitaciones por link o por email.
-- Multiples torneos o una entidad `Tournament` quedan como mejora futura fuera del alcance de la consigna actual.
-
-Quedan como mejoras futuras: transferencia de propiedad de grupo, eliminacion de grupo, invitaciones por link o email, multiples torneos, y paginacion de rankings. El frontend en React ya esta en desarrollo como etapa aparte.
