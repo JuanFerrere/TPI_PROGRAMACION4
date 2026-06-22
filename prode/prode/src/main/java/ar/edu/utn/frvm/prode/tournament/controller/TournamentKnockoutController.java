@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.prode.tournament.controller;
 
 import ar.edu.utn.frvm.prode.tournament.dto.KnockoutBracketResponse;
+import ar.edu.utn.frvm.prode.tournament.dto.KnockoutAdvanceRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.KnockoutGenerateRequest;
 import ar.edu.utn.frvm.prode.tournament.service.TournamentKnockoutService;
 import jakarta.validation.Valid;
@@ -43,5 +44,15 @@ public class TournamentKnockoutController {
 			@Valid @RequestBody KnockoutGenerateRequest request
 	) {
 		return tournamentKnockoutService.generate(tournamentId, request);
+	}
+
+	@PostMapping("/advance")
+	@ResponseStatus(HttpStatus.CREATED)
+	@PreAuthorize("hasRole('ADMIN')")
+	public KnockoutBracketResponse advanceKnockout(
+			@PathVariable Long tournamentId,
+			@Valid @RequestBody KnockoutAdvanceRequest request
+	) {
+		return tournamentKnockoutService.advance(tournamentId, request);
 	}
 }

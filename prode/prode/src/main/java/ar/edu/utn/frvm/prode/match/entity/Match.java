@@ -112,6 +112,17 @@ public class Match {
 	@Column
 	private Integer bracketPosition;
 
+	/**
+	 * Ganador deportivo de un partido eliminatorio.
+	 *
+	 * Queda null en partidos REGULAR y en eliminatorias todavia no finalizadas.
+	 * Se asigna al cargar el resultado de un partido KNOCKOUT para poder avanzar
+	 * la llave sin recalcular ganadores desde los goles en cada paso.
+	 */
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "winner_team_id")
+	private Team winnerTeam;
+
 	@Column(nullable = false, updatable = false) // Instante automatico de creacion, no editable.
 	private Instant createdAt;
 

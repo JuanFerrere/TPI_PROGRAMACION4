@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.prode.tournament.service;
 import ar.edu.utn.frvm.prode.common.exception.BusinessRuleException;
 import ar.edu.utn.frvm.prode.common.exception.DuplicateResourceException;
 import ar.edu.utn.frvm.prode.common.exception.ResourceNotFoundException;
+import ar.edu.utn.frvm.prode.match.entity.KnockoutRound;
 import ar.edu.utn.frvm.prode.match.entity.Match;
 import ar.edu.utn.frvm.prode.match.entity.MatchPhase;
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
@@ -13,6 +14,7 @@ import ar.edu.utn.frvm.prode.matchday.repository.MatchDayRepository;
 import ar.edu.utn.frvm.prode.prediction.repository.PredictionRepository;
 import ar.edu.utn.frvm.prode.prediction.service.PredictionScoringService;
 import ar.edu.utn.frvm.prode.matchday.service.MatchDayService;
+import ar.edu.utn.frvm.prode.team.entity.Team;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchBulkCreateRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchBulkItemRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.TournamentMatchCreateRequest;
@@ -171,12 +173,14 @@ public class TournamentMatchService {
 		validateTournamentIsNotDraftOrArchived(tournament);
 		Match match = getMatchById(tournamentId, matchId);
 		validateFinishedTournamentOnlyCorrectsResults(tournament, match);
+		validateKnockoutResult(tournamentId, match, request.homeGoals(), request.awayGoals());
 
 		ResultTrend resultTrend = calculateResultTrend(request.homeGoals(), request.awayGoals());
 		match.setHomeGoals(request.homeGoals());
 		match.setAwayGoals(request.awayGoals());
 		match.setResultTrend(resultTrend);
 		match.setStatus(MatchStatus.FINALIZADO);
+		match.setWinnerTeam(resolveWinnerTeam(match, request.homeGoals(), request.awayGoals()));
 
 		Match savedMatch = matchRepository.save(match);
 		predictionScoringService.scoreMatchPredictions(savedMatch);
@@ -276,6 +280,34 @@ public class TournamentMatchService {
 		}
 	}
 
+	private void validateKnockoutResult(Long tournamentId, Match match, int homeGoals, int awayGoals) {
+		if (effectivePhase(match) != MatchPhase.KNOCKOUT) {
+			return;
+		}
+
+		if (homeGoals == awayGoals) {
+			throw new BusinessRuleException("No se permite empate en un partido eliminatorio");
+		}
+
+		if (
+				match.getStatus() == MatchStatus.FINALIZADO &&
+				match.getKnockoutRound() != null &&
+				existsNextRound(tournamentId, match.getKnockoutRound())
+		) {
+			throw new BusinessRuleException("No se puede corregir el resultado porque ya se generó una ronda posterior");
+		}
+	}
+
+	private boolean existsNextRound(Long tournamentId, KnockoutRound knockoutRound) {
+		KnockoutRound nextRound = nextRound(knockoutRound);
+
+		return nextRound != null && matchRepository.existsByTournamentIdAndPhaseAndKnockoutRound(
+				tournamentId,
+				MatchPhase.KNOCKOUT,
+				nextRound
+		);
+	}
+
 	private TournamentTeam getTournamentTeamById(Long tournamentId, Long tournamentTeamId, String message) {
 		return tournamentTeamRepository.findByIdAndTournamentIdWithTeam(tournamentTeamId, tournamentId)
 				.orElseThrow(() -> new ResourceNotFoundException(message));
@@ -328,6 +360,27 @@ public class TournamentMatchService {
 		return ResultTrend.EMPATE;
 	}
 
+	private Team resolveWinnerTeam(Match match, int homeGoals, int awayGoals) {
+		if (effectivePhase(match) != MatchPhase.KNOCKOUT) {
+			return null;
+		}
+
+		return homeGoals > awayGoals ? match.getHomeTeam() : match.getAwayTeam();
+	}
+
+	private KnockoutRound nextRound(KnockoutRound knockoutRound) {
+		if (knockoutRound == null) {
+			return null;
+		}
+
+		return switch (knockoutRound) {
+			case ROUND_OF_16 -> KnockoutRound.QUARTER_FINAL;
+			case QUARTER_FINAL -> KnockoutRound.SEMI_FINAL;
+			case SEMI_FINAL -> KnockoutRound.FINAL;
+			case FINAL -> null;
+		};
+	}
+
 	private MatchPhase effectivePhase(Match match) {
 		return match.getPhase() == null ? MatchPhase.REGULAR : match.getPhase();
 	}
@@ -364,7 +417,9 @@ public class TournamentMatchService {
 				match.getResultTrend(),
 				effectivePhase(match),
 				match.getKnockoutRound(),
-				match.getBracketPosition()
+				match.getBracketPosition(),
+				match.getWinnerTeam() == null ? null : match.getWinnerTeam().getId(),
+				match.getWinnerTeam() == null ? null : match.getWinnerTeam().getName()
 		);
 	}
 }

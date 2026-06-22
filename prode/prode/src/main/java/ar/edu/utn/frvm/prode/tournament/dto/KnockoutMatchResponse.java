@@ -19,6 +19,8 @@ import java.time.Instant;
  * @param homeGoals goles del local, si ya existe resultado.
  * @param awayGoals goles del visitante, si ya existe resultado.
  * @param resultTrend tendencia real, si ya existe resultado.
+ * @param winnerTeamId id del ganador, si el partido eliminatorio ya finalizo.
+ * @param winnerTeamName nombre del ganador, si el partido eliminatorio ya finalizo.
  */
 public record KnockoutMatchResponse(
 		Long matchId,
@@ -31,6 +33,8 @@ public record KnockoutMatchResponse(
 		MatchStatus status,
 		Integer homeGoals,
 		Integer awayGoals,
-		ResultTrend resultTrend
+		ResultTrend resultTrend,
+		Long winnerTeamId,
+		String winnerTeamName
 ) {
 }

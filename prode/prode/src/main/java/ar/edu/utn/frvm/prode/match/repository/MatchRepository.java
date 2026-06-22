@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.prode.match.repository;
 
 import ar.edu.utn.frvm.prode.match.entity.Match;
+import ar.edu.utn.frvm.prode.match.entity.KnockoutRound;
 import ar.edu.utn.frvm.prode.match.entity.MatchPhase;
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -58,9 +59,21 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
 
 	boolean existsByTournamentIdAndPhase(Long tournamentId, MatchPhase phase);
 
+	boolean existsByTournamentIdAndPhaseAndKnockoutRound(
+			Long tournamentId,
+			MatchPhase phase,
+			KnockoutRound knockoutRound
+	);
+
 	List<Match> findByTournamentIdAndPhaseOrderByKnockoutRoundAscBracketPositionAscStartTimeAsc(
 			Long tournamentId,
 			MatchPhase phase
+	);
+
+	List<Match> findByTournamentIdAndPhaseAndKnockoutRoundOrderByBracketPositionAsc(
+			Long tournamentId,
+			MatchPhase phase,
+			KnockoutRound knockoutRound
 	);
 
 	List<Match> findByTournamentIdAndMatchDayIdAndStatusOrderByStartTimeAsc(

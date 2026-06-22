@@ -9,6 +9,7 @@ import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
 import ar.edu.utn.frvm.prode.match.repository.MatchRepository;
 import ar.edu.utn.frvm.prode.matchday.entity.MatchDay;
 import ar.edu.utn.frvm.prode.matchday.repository.MatchDayRepository;
+import ar.edu.utn.frvm.prode.tournament.dto.KnockoutAdvanceRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.KnockoutBracketResponse;
 import ar.edu.utn.frvm.prode.tournament.dto.KnockoutGenerateRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.KnockoutMatchResponse;
@@ -130,6 +131,133 @@ public class TournamentKnockoutService {
 				.toList();
 
 		return new KnockoutBracketResponse(tournament.getId(), tournament.getName(), rounds);
+	}
+
+	@Transactional
+	public KnockoutBracketResponse advance(Long tournamentId, KnockoutAdvanceRequest request) {
+		Tournament tournament = getTournamentById(tournamentId);
+		validateCanAdvance(tournament, request);
+
+		List<Match> knockoutMatches = matchRepository
+				.findByTournamentIdAndPhaseOrderByKnockoutRoundAscBracketPositionAscStartTimeAsc(
+						tournamentId,
+						MatchPhase.KNOCKOUT
+				);
+		KnockoutRound currentRound = currentRoundForAdvance(knockoutMatches);
+		KnockoutRound nextRound = nextRound(currentRound);
+
+		if (nextRound == null) {
+			throw new BusinessRuleException("El torneo ya tiene una final generada o finalizada");
+		}
+
+		if (hasRound(knockoutMatches, nextRound)) {
+			throw new BusinessRuleException("La ronda siguiente ya fue generada");
+		}
+
+		List<Match> currentRoundMatches = knockoutMatches.stream()
+				.filter(match -> match.getKnockoutRound() == currentRound)
+				.sorted(Comparator
+						.comparing((Match match) -> match.getBracketPosition(), Comparator.nullsLast(Comparator.naturalOrder()))
+						.thenComparing(Match::getStartTime))
+				.toList();
+
+		validateCurrentRoundCompleted(currentRoundMatches);
+		createNextRoundMatches(tournament, currentRoundMatches, nextRound, request.nextRoundStartTime());
+
+		return getBracket(tournamentId);
+	}
+
+	private void validateCanAdvance(Tournament tournament, KnockoutAdvanceRequest request) {
+		if (tournament.getStatus() != TournamentStatus.ACTIVE) {
+			throw new BusinessRuleException("Solo se pueden avanzar eliminatorias en torneos ACTIVE");
+		}
+
+		if (request.nextRoundStartTime() == null) {
+			throw new BusinessRuleException("El horario de la siguiente ronda es obligatorio");
+		}
+	}
+
+	private KnockoutRound currentRoundForAdvance(List<Match> knockoutMatches) {
+		if (knockoutMatches.isEmpty()) {
+			throw new BusinessRuleException("El torneo no tiene una llave eliminatoria generada");
+		}
+
+		return knockoutMatches.stream()
+				.map(Match::getKnockoutRound)
+				.distinct()
+				.max(Comparator.comparingInt(this::roundOrder))
+				.orElseThrow(() -> new BusinessRuleException("El torneo no tiene una llave eliminatoria generada"));
+	}
+
+	private boolean hasRound(List<Match> matches, KnockoutRound round) {
+		return matches.stream().anyMatch(match -> match.getKnockoutRound() == round);
+	}
+
+	private void validateCurrentRoundCompleted(List<Match> currentRoundMatches) {
+		for (Match match : currentRoundMatches) {
+			if (match.getStatus() != MatchStatus.FINALIZADO) {
+				throw new BusinessRuleException("Todos los partidos de la ronda deben estar finalizados");
+			}
+
+			if (match.getWinnerTeam() == null) {
+				throw new BusinessRuleException("Todos los partidos de la ronda deben tener ganador");
+			}
+		}
+	}
+
+	private void createNextRoundMatches(
+			Tournament tournament,
+			List<Match> currentRoundMatches,
+			KnockoutRound nextRound,
+			Instant nextRoundStartTime
+	) {
+		if (currentRoundMatches.size() % 2 != 0) {
+			throw new BusinessRuleException("La cantidad de ganadores debe ser par para avanzar de ronda");
+		}
+
+		MatchDay matchDay = matchDayRepository.save(new MatchDay(
+				uniqueMatchDayName(tournament.getId(), labelForRound(nextRound)),
+				tournament,
+				null
+		));
+
+		for (int index = 0; index < currentRoundMatches.size(); index += 2) {
+			Match firstWinnerMatch = currentRoundMatches.get(index);
+			Match secondWinnerMatch = currentRoundMatches.get(index + 1);
+			int bracketPosition = (index / 2) + 1;
+
+			Match match = new Match(
+					tournament,
+					matchDay,
+					firstWinnerMatch.getWinnerTeam(),
+					secondWinnerMatch.getWinnerTeam(),
+					nextRoundStartTime.plus((long) (bracketPosition - 1) * MATCH_SPACING_HOURS, ChronoUnit.HOURS)
+			);
+			match.setStatus(MatchStatus.POR_JUGARSE);
+			match.setPhase(MatchPhase.KNOCKOUT);
+			match.setKnockoutRound(nextRound);
+			match.setBracketPosition(bracketPosition);
+			match.setHomeGoals(null);
+			match.setAwayGoals(null);
+			match.setResultTrend(null);
+			match.setWinnerTeam(null);
+			matchRepository.save(match);
+		}
+	}
+
+	private String uniqueMatchDayName(Long tournamentId, String baseName) {
+		if (!matchDayRepository.existsByTournamentIdAndNameIgnoreCase(tournamentId, baseName)) {
+			return baseName;
+		}
+
+		int suffix = 2;
+		String candidate = baseName + " " + suffix;
+		while (matchDayRepository.existsByTournamentIdAndNameIgnoreCase(tournamentId, candidate)) {
+			suffix++;
+			candidate = baseName + " " + suffix;
+		}
+
+		return candidate;
 	}
 
 	private void validateCanGenerate(Tournament tournament, KnockoutGenerateRequest request) {
@@ -271,6 +399,19 @@ public class TournamentKnockoutService {
 		};
 	}
 
+	private KnockoutRound nextRound(KnockoutRound round) {
+		if (round == null) {
+			return null;
+		}
+
+		return switch (round) {
+			case ROUND_OF_16 -> KnockoutRound.QUARTER_FINAL;
+			case QUARTER_FINAL -> KnockoutRound.SEMI_FINAL;
+			case SEMI_FINAL -> KnockoutRound.FINAL;
+			case FINAL -> null;
+		};
+	}
+
 	private String labelForRound(KnockoutRound round) {
 		if (round == null) {
 			return "Eliminatoria";
@@ -314,7 +455,9 @@ public class TournamentKnockoutService {
 				match.getStatus(),
 				match.getHomeGoals(),
 				match.getAwayGoals(),
-				match.getResultTrend()
+				match.getResultTrend(),
+				match.getWinnerTeam() == null ? null : match.getWinnerTeam().getId(),
+				match.getWinnerTeam() == null ? null : match.getWinnerTeam().getName()
 		);
 	}
 

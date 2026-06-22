@@ -30,6 +30,8 @@ import java.time.Instant;
  * @param phase fase deportiva del partido.
  * @param knockoutRound ronda eliminatoria, si aplica.
  * @param bracketPosition posicion dentro de la llave, si aplica.
+ * @param winnerTeamId id del ganador en partidos eliminatorios finalizados.
+ * @param winnerTeamName nombre del ganador en partidos eliminatorios finalizados.
  */
 public record TournamentMatchResponse(
 		Long id,
@@ -51,6 +53,8 @@ public record TournamentMatchResponse(
 		ResultTrend resultTrend,
 		MatchPhase phase,
 		KnockoutRound knockoutRound,
-		Integer bracketPosition
+		Integer bracketPosition,
+		Long winnerTeamId,
+		String winnerTeamName
 ) {
 }

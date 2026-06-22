@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.prode.tournament.service;
 import ar.edu.utn.frvm.prode.common.exception.BusinessRuleException;
 import ar.edu.utn.frvm.prode.common.exception.DuplicateResourceException;
 import ar.edu.utn.frvm.prode.common.exception.ResourceNotFoundException;
+import ar.edu.utn.frvm.prode.match.entity.KnockoutRound;
 import ar.edu.utn.frvm.prode.match.entity.Match;
 import ar.edu.utn.frvm.prode.match.entity.MatchPhase;
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
@@ -79,6 +80,8 @@ class TournamentMatchServiceTest {
 		assertEquals(MatchPhase.REGULAR, response.phase());
 		assertNull(response.knockoutRound());
 		assertNull(response.bracketPosition());
+		assertNull(response.winnerTeamId());
+		assertNull(response.winnerTeamName());
 	}
 
 	@Test
@@ -229,8 +232,115 @@ class TournamentMatchServiceTest {
 		assertEquals(3, response.homeGoals());
 		assertEquals(0, response.awayGoals());
 		assertEquals(ResultTrend.LOCAL, response.resultTrend());
+		assertNull(response.winnerTeamId());
+		assertNull(response.winnerTeamName());
 		verify(predictionScoringService).scoreMatchPredictions(match);
 		verify(matchDayService).refreshStatusByMatchDayId(100L);
+	}
+
+	@Test
+	void resultadoKnockoutNoPermiteEmpate() {
+		TestData data = baseData();
+		data.tournament().setStatus(TournamentStatus.ACTIVE);
+		Match match = knockoutMatch(500L, data, KnockoutRound.SEMI_FINAL);
+		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(data.tournament()));
+		when(matchRepository.findByIdAndTournamentId(500L, 1L)).thenReturn(Optional.of(match));
+
+		assertThrows(
+				BusinessRuleException.class,
+				() -> service.saveResult(1L, 500L, new TournamentMatchResultRequest(1, 1))
+		);
+	}
+
+	@Test
+	void resultadoKnockoutVictoriaLocalSeteaWinnerTeamLocal() {
+		TestData data = baseData();
+		data.tournament().setStatus(TournamentStatus.ACTIVE);
+		Match match = knockoutMatch(500L, data, KnockoutRound.SEMI_FINAL);
+		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(data.tournament()));
+		when(matchRepository.findByIdAndTournamentId(500L, 1L)).thenReturn(Optional.of(match));
+		when(matchRepository.save(any(Match.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(tournamentTeamRepository.findByTournamentIdAndTeamId(1L, 10L)).thenReturn(Optional.of(data.homeTournamentTeam()));
+		when(tournamentTeamRepository.findByTournamentIdAndTeamId(1L, 11L)).thenReturn(Optional.of(data.awayTournamentTeam()));
+
+		TournamentMatchResponse response = service.saveResult(
+				1L,
+				500L,
+				new TournamentMatchResultRequest(2, 1)
+		);
+
+		assertEquals(10L, response.winnerTeamId());
+		assertEquals("Argentina", response.winnerTeamName());
+		assertEquals(data.homeTournamentTeam().getTeam(), match.getWinnerTeam());
+	}
+
+	@Test
+	void resultadoKnockoutVictoriaVisitanteSeteaWinnerTeamVisitante() {
+		TestData data = baseData();
+		data.tournament().setStatus(TournamentStatus.ACTIVE);
+		Match match = knockoutMatch(500L, data, KnockoutRound.SEMI_FINAL);
+		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(data.tournament()));
+		when(matchRepository.findByIdAndTournamentId(500L, 1L)).thenReturn(Optional.of(match));
+		when(matchRepository.save(any(Match.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(tournamentTeamRepository.findByTournamentIdAndTeamId(1L, 10L)).thenReturn(Optional.of(data.homeTournamentTeam()));
+		when(tournamentTeamRepository.findByTournamentIdAndTeamId(1L, 11L)).thenReturn(Optional.of(data.awayTournamentTeam()));
+
+		TournamentMatchResponse response = service.saveResult(
+				1L,
+				500L,
+				new TournamentMatchResultRequest(0, 2)
+		);
+
+		assertEquals(11L, response.winnerTeamId());
+		assertEquals("Argelia", response.winnerTeamName());
+		assertEquals(data.awayTournamentTeam().getTeam(), match.getWinnerTeam());
+	}
+
+	@Test
+	void resultadoRegularNoSeteaWinnerTeam() {
+		TestData data = baseData();
+		data.tournament().setStatus(TournamentStatus.ACTIVE);
+		Match match = match(500L, data);
+		match.setPhase(MatchPhase.REGULAR);
+		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(data.tournament()));
+		when(matchRepository.findByIdAndTournamentId(500L, 1L)).thenReturn(Optional.of(match));
+		when(matchRepository.save(any(Match.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(tournamentTeamRepository.findByTournamentIdAndTeamId(1L, 10L)).thenReturn(Optional.of(data.homeTournamentTeam()));
+		when(tournamentTeamRepository.findByTournamentIdAndTeamId(1L, 11L)).thenReturn(Optional.of(data.awayTournamentTeam()));
+
+		TournamentMatchResponse response = service.saveResult(
+				1L,
+				500L,
+				new TournamentMatchResultRequest(2, 0)
+		);
+
+		assertNull(response.winnerTeamId());
+		assertNull(response.winnerTeamName());
+		assertNull(match.getWinnerTeam());
+	}
+
+	@Test
+	void correccionKnockoutBloqueadaSiExisteRondaPosterior() {
+		TestData data = baseData();
+		data.tournament().setStatus(TournamentStatus.ACTIVE);
+		Match match = knockoutMatch(500L, data, KnockoutRound.SEMI_FINAL);
+		match.setStatus(MatchStatus.FINALIZADO);
+		match.setHomeGoals(2);
+		match.setAwayGoals(0);
+		match.setResultTrend(ResultTrend.LOCAL);
+		match.setWinnerTeam(data.homeTournamentTeam().getTeam());
+		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(data.tournament()));
+		when(matchRepository.findByIdAndTournamentId(500L, 1L)).thenReturn(Optional.of(match));
+		when(matchRepository.existsByTournamentIdAndPhaseAndKnockoutRound(
+				1L,
+				MatchPhase.KNOCKOUT,
+				KnockoutRound.FINAL
+		)).thenReturn(true);
+
+		assertThrows(
+				BusinessRuleException.class,
+				() -> service.saveResult(1L, 500L, new TournamentMatchResultRequest(3, 1))
+		);
 	}
 
 	@Test
@@ -356,6 +466,14 @@ class TournamentMatchServiceTest {
 		match.setStatus(MatchStatus.POR_JUGARSE);
 		match.setCreatedAt(Instant.parse("2026-06-17T00:00:00Z"));
 		match.setUpdatedAt(Instant.parse("2026-06-17T00:00:00Z"));
+		return match;
+	}
+
+	private Match knockoutMatch(Long id, TestData data, KnockoutRound knockoutRound) {
+		Match match = match(id, data);
+		match.setPhase(MatchPhase.KNOCKOUT);
+		match.setKnockoutRound(knockoutRound);
+		match.setBracketPosition(1);
 		return match;
 	}
 

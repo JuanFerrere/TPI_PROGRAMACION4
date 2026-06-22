@@ -9,6 +9,7 @@ import ar.edu.utn.frvm.prode.match.repository.MatchRepository;
 import ar.edu.utn.frvm.prode.matchday.entity.MatchDay;
 import ar.edu.utn.frvm.prode.matchday.repository.MatchDayRepository;
 import ar.edu.utn.frvm.prode.team.entity.Team;
+import ar.edu.utn.frvm.prode.tournament.dto.KnockoutAdvanceRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.KnockoutBracketResponse;
 import ar.edu.utn.frvm.prode.tournament.dto.KnockoutGenerateRequest;
 import ar.edu.utn.frvm.prode.tournament.dto.StandingRowResponse;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -142,6 +144,7 @@ class TournamentKnockoutServiceTest {
 		Team beta = team(11L, "Beta");
 		Team gamma = team(12L, "Gamma");
 		Match semi = knockoutMatch(500L, tournament, alfa, beta, KnockoutRound.SEMI_FINAL, 1);
+		semi.setWinnerTeam(alfa);
 		Match finalMatch = knockoutMatch(501L, tournament, alfa, gamma, KnockoutRound.FINAL, 1);
 		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
 		when(matchRepository.findByTournamentIdAndPhaseOrderByKnockoutRoundAscBracketPositionAscStartTimeAsc(
@@ -155,7 +158,125 @@ class TournamentKnockoutServiceTest {
 		assertEquals(KnockoutRound.SEMI_FINAL, response.rounds().get(0).round());
 		assertEquals(KnockoutRound.FINAL, response.rounds().get(1).round());
 		assertEquals(500L, response.rounds().get(0).matches().getFirst().matchId());
+		assertEquals(10L, response.rounds().get(0).matches().getFirst().winnerTeamId());
+		assertEquals("Alfa", response.rounds().get(0).matches().getFirst().winnerTeamName());
 		assertEquals(501L, response.rounds().get(1).matches().getFirst().matchId());
+		assertNull(response.rounds().get(1).matches().getFirst().winnerTeamId());
+	}
+
+	@Test
+	void noAvanzaSiHayPartidoPorJugarse() {
+		Tournament tournament = tournament(TournamentFormat.LEAGUE, TournamentStatus.ACTIVE);
+		Team alfa = team(10L, "Alfa");
+		Team beta = team(11L, "Beta");
+		Team gamma = team(12L, "Gamma");
+		Team delta = team(13L, "Delta");
+		Match semiUno = knockoutMatch(500L, tournament, alfa, beta, KnockoutRound.SEMI_FINAL, 1);
+		Match semiDos = finishedKnockoutMatch(501L, tournament, gamma, delta, KnockoutRound.SEMI_FINAL, 2, gamma);
+		stubKnockoutMatches(tournament, List.of(semiUno, semiDos));
+
+		assertThrows(
+				BusinessRuleException.class,
+				() -> service.advance(1L, new KnockoutAdvanceRequest(Instant.parse("2026-07-05T20:00:00Z")))
+		);
+	}
+
+	@Test
+	void noAvanzaSiHayFinalizadoSinWinnerTeam() {
+		Tournament tournament = tournament(TournamentFormat.LEAGUE, TournamentStatus.ACTIVE);
+		Team alfa = team(10L, "Alfa");
+		Team beta = team(11L, "Beta");
+		Team gamma = team(12L, "Gamma");
+		Team delta = team(13L, "Delta");
+		Match semiUno = knockoutMatch(500L, tournament, alfa, beta, KnockoutRound.SEMI_FINAL, 1);
+		semiUno.setStatus(MatchStatus.FINALIZADO);
+		semiUno.setHomeGoals(2);
+		semiUno.setAwayGoals(0);
+		Match semiDos = finishedKnockoutMatch(501L, tournament, gamma, delta, KnockoutRound.SEMI_FINAL, 2, gamma);
+		stubKnockoutMatches(tournament, List.of(semiUno, semiDos));
+
+		assertThrows(
+				BusinessRuleException.class,
+				() -> service.advance(1L, new KnockoutAdvanceRequest(Instant.parse("2026-07-05T20:00:00Z")))
+		);
+	}
+
+	@Test
+	void avanzaDeSemifinalAFinalConGanadores() {
+		Tournament tournament = tournament(TournamentFormat.LEAGUE, TournamentStatus.ACTIVE);
+		Team alfa = team(10L, "Alfa");
+		Team beta = team(11L, "Beta");
+		Team gamma = team(12L, "Gamma");
+		Team delta = team(13L, "Delta");
+		Match semiUno = finishedKnockoutMatch(500L, tournament, alfa, beta, KnockoutRound.SEMI_FINAL, 1, alfa);
+		Match semiDos = finishedKnockoutMatch(501L, tournament, gamma, delta, KnockoutRound.SEMI_FINAL, 2, delta);
+		List<Match> knockoutMatches = new ArrayList<>(List.of(semiUno, semiDos));
+		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
+		when(matchRepository.findByTournamentIdAndPhaseOrderByKnockoutRoundAscBracketPositionAscStartTimeAsc(
+				1L,
+				MatchPhase.KNOCKOUT
+		)).thenAnswer(invocation -> List.copyOf(knockoutMatches));
+		when(matchDayRepository.existsByTournamentIdAndNameIgnoreCase(1L, "Final")).thenReturn(false);
+		when(matchDayRepository.save(any(MatchDay.class))).thenAnswer(invocation -> {
+			MatchDay matchDay = invocation.getArgument(0);
+			matchDay.setId(900L);
+			return matchDay;
+		});
+		when(matchRepository.save(any(Match.class))).thenAnswer(invocation -> {
+			Match match = invocation.getArgument(0);
+			match.setId(700L);
+			knockoutMatches.add(match);
+			return match;
+		});
+
+		KnockoutBracketResponse response = service.advance(
+				1L,
+				new KnockoutAdvanceRequest(Instant.parse("2026-07-05T20:00:00Z"))
+		);
+
+		Match finalMatch = knockoutMatches.get(2);
+		assertEquals(KnockoutRound.FINAL, finalMatch.getKnockoutRound());
+		assertEquals(MatchPhase.KNOCKOUT, finalMatch.getPhase());
+		assertEquals(MatchStatus.POR_JUGARSE, finalMatch.getStatus());
+		assertEquals(1, finalMatch.getBracketPosition());
+		assertEquals("Alfa", finalMatch.getHomeTeam().getName());
+		assertEquals("Delta", finalMatch.getAwayTeam().getName());
+		assertNull(finalMatch.getWinnerTeam());
+		assertEquals(2, response.rounds().size());
+		assertEquals(KnockoutRound.FINAL, response.rounds().get(1).round());
+		assertEquals(700L, response.rounds().get(1).matches().getFirst().matchId());
+	}
+
+	@Test
+	void noAvanzaDesdeFinal() {
+		Tournament tournament = tournament(TournamentFormat.LEAGUE, TournamentStatus.ACTIVE);
+		Team alfa = team(10L, "Alfa");
+		Team beta = team(11L, "Beta");
+		Match finalMatch = finishedKnockoutMatch(500L, tournament, alfa, beta, KnockoutRound.FINAL, 1, alfa);
+		stubKnockoutMatches(tournament, List.of(finalMatch));
+
+		assertThrows(
+				BusinessRuleException.class,
+				() -> service.advance(1L, new KnockoutAdvanceRequest(Instant.parse("2026-07-05T20:00:00Z")))
+		);
+	}
+
+	@Test
+	void noDuplicaRondaSiguienteSiYaExisteFinal() {
+		Tournament tournament = tournament(TournamentFormat.LEAGUE, TournamentStatus.ACTIVE);
+		Team alfa = team(10L, "Alfa");
+		Team beta = team(11L, "Beta");
+		Team gamma = team(12L, "Gamma");
+		Team delta = team(13L, "Delta");
+		Match semiUno = finishedKnockoutMatch(500L, tournament, alfa, beta, KnockoutRound.SEMI_FINAL, 1, alfa);
+		Match semiDos = finishedKnockoutMatch(501L, tournament, gamma, delta, KnockoutRound.SEMI_FINAL, 2, gamma);
+		Match finalMatch = knockoutMatch(502L, tournament, alfa, gamma, KnockoutRound.FINAL, 1);
+		stubKnockoutMatches(tournament, List.of(semiUno, semiDos, finalMatch));
+
+		assertThrows(
+				BusinessRuleException.class,
+				() -> service.advance(1L, new KnockoutAdvanceRequest(Instant.parse("2026-07-05T20:00:00Z")))
+		);
 	}
 
 	private List<Match> stubGeneration(
@@ -283,6 +404,31 @@ class TournamentKnockoutServiceTest {
 		match.setKnockoutRound(round);
 		match.setBracketPosition(bracketPosition);
 		return match;
+	}
+
+	private Match finishedKnockoutMatch(
+			Long id,
+			Tournament tournament,
+			Team homeTeam,
+			Team awayTeam,
+			KnockoutRound round,
+			Integer bracketPosition,
+			Team winnerTeam
+	) {
+		Match match = knockoutMatch(id, tournament, homeTeam, awayTeam, round, bracketPosition);
+		match.setStatus(MatchStatus.FINALIZADO);
+		match.setHomeGoals(winnerTeam == homeTeam ? 2 : 0);
+		match.setAwayGoals(winnerTeam == awayTeam ? 2 : 0);
+		match.setWinnerTeam(winnerTeam);
+		return match;
+	}
+
+	private void stubKnockoutMatches(Tournament tournament, List<Match> matches) {
+		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
+		when(matchRepository.findByTournamentIdAndPhaseOrderByKnockoutRoundAscBracketPositionAscStartTimeAsc(
+				1L,
+				MatchPhase.KNOCKOUT
+		)).thenReturn(matches);
 	}
 
 	private Tournament tournament(TournamentFormat format, TournamentStatus status) {
