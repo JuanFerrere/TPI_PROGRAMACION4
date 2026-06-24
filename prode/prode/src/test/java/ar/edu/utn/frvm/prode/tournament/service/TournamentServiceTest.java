@@ -38,12 +38,12 @@ class TournamentServiceTest {
 	private final TournamentService tournamentService = new TournamentService(tournamentRepository, tournamentTeamRepository);
 
 	@Test
-	void creaTorneoConNombreNormalizadoYEstadoDraft() {
+	void creaTorneoConNombreNormalizadoYEstadoActive() {
 		Tournament savedTournament = tournament(
 				1L,
 				"Mundial 2026",
 				"Prode del Mundial 2026",
-				TournamentStatus.DRAFT,
+				TournamentStatus.ACTIVE,
 				TournamentFormat.GROUPS
 		);
 		when(tournamentRepository.existsByNameIgnoreCase("Mundial 2026")).thenReturn(false);
@@ -55,7 +55,7 @@ class TournamentServiceTest {
 
 		assertEquals(1L, response.id());
 		assertEquals("Mundial 2026", response.name());
-		assertEquals(TournamentStatus.DRAFT, response.status());
+		assertEquals(TournamentStatus.ACTIVE, response.status());
 		assertEquals(TournamentFormat.GROUPS, response.format());
 		verify(tournamentRepository).existsByNameIgnoreCase("Mundial 2026");
 	}
@@ -103,8 +103,8 @@ class TournamentServiceTest {
 	}
 
 	@Test
-	void actualizaFormatoSiEstaDraftYSinEquipos() {
-		Tournament tournament = tournament(1L, "Champions League", null, TournamentStatus.DRAFT, TournamentFormat.LEAGUE);
+	void actualizaFormatoSiEstaActiveYSinEquipos() {
+		Tournament tournament = tournament(1L, "Champions League", null, TournamentStatus.ACTIVE, TournamentFormat.LEAGUE);
 		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
 		when(tournamentTeamRepository.existsByTournamentId(1L)).thenReturn(false);
 
@@ -119,9 +119,20 @@ class TournamentServiceTest {
 
 	@Test
 	void noPermiteCambiarFormatoSiTieneEquipos() {
-		Tournament tournament = tournament(1L, "Champions League", null, TournamentStatus.DRAFT, TournamentFormat.LEAGUE);
+		Tournament tournament = tournament(1L, "Champions League", null, TournamentStatus.ACTIVE, TournamentFormat.LEAGUE);
 		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
 		when(tournamentTeamRepository.existsByTournamentId(1L)).thenReturn(true);
+
+		assertThrows(
+				BusinessRuleException.class,
+				() -> tournamentService.updateFormat(1L, new TournamentFormatUpdateRequest("GROUPS"))
+		);
+	}
+
+	@Test
+	void noPermiteCambiarFormatoSiNoEstaActive() {
+		Tournament tournament = tournament(1L, "Champions League", null, TournamentStatus.FINISHED, TournamentFormat.LEAGUE);
+		when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
 
 		assertThrows(
 				BusinessRuleException.class,

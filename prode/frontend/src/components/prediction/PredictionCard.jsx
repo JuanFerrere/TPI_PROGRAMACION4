@@ -7,6 +7,18 @@ const statusVariant = {
   FINALIZADO: "success",
 };
 
+const statusLabel = {
+  POR_JUGARSE: "Por jugarse",
+  EN_JUEGO: "En juego",
+  FINALIZADO: "Finalizado",
+};
+
+const trendLabel = {
+  LOCAL: "Gana local",
+  VISITANTE: "Gana visitante",
+  EMPATE: "Empate",
+};
+
 function formatearFecha(fecha) {
   if (!fecha) {
     return "Fecha a confirmar";
@@ -24,61 +36,132 @@ function formatearFecha(fecha) {
   });
 }
 
-function obtenerResumen(prediction) {
-  if (prediction.matchStatus === "POR_JUGARSE") {
-    return "Pendiente de resultado";
+function tieneResultado(prediction) {
+  return (
+    prediction.homeGoals !== null &&
+    prediction.homeGoals !== undefined &&
+    prediction.awayGoals !== null &&
+    prediction.awayGoals !== undefined
+  );
+}
+
+function obtenerResultadoFinal(prediction) {
+  if (!tieneResultado(prediction)) {
+    return "Resultado no disponible";
   }
 
-  if (prediction.matchStatus === "EN_JUEGO") {
-    return "Partido en juego";
+  return `${prediction.homeGoals} - ${prediction.awayGoals}`;
+}
+
+function obtenerTipoAcierto(prediction) {
+  if (prediction.matchStatus !== "FINALIZADO") {
+    return {
+      className: "prediction-card--pending",
+      label: "Resultado pendiente",
+      variant: "primary",
+    };
   }
 
-  return `${prediction.points ?? 0} puntos`;
+  if (prediction.exactHit) {
+    return {
+      className: "prediction-card--exact",
+      label: "Acierto exacto",
+      variant: "amber",
+    };
+  }
+
+  if (Number(prediction.points ?? 0) > 0) {
+    return {
+      className: "prediction-card--trend",
+      label: "Tendencia correcta",
+      variant: "success",
+    };
+  }
+
+  return {
+    className: "prediction-card--zero",
+    label: "Sin puntos",
+    variant: "neutral",
+  };
 }
 
 function PredictionCard({ prediction }) {
   const finalizado = prediction.matchStatus === "FINALIZADO";
-  const exactHit = finalizado && prediction.exactHit;
+  const tipoAcierto = obtenerTipoAcierto(prediction);
+  const estadoTraducido =
+    statusLabel[prediction.matchStatus] || prediction.matchStatus || "Sin estado";
+  const tendenciaTraducida =
+    trendLabel[prediction.predictedTrend] || "Sin tendencia";
+  const marcadorPronosticado = `${prediction.predictedHomeGoals} - ${prediction.predictedAwayGoals}`;
 
   return (
-    <Card className={`prediction-card${exactHit ? " prediction-card--hit" : ""}`}>
+    <Card className={`prediction-card ${tipoAcierto.className}`}>
       <div className="prediction-card__top">
-        <span>{prediction.matchDayName || "Fecha sin nombre"}</span>
+        <div className="prediction-card__eyebrow">
+          {prediction.tournamentName && (
+            <Badge size="sm" variant="neutral">
+              {prediction.tournamentName}
+            </Badge>
+          )}
+          <span>{prediction.matchDayName || "Fecha sin nombre"}</span>
+        </div>
         <Badge size="sm" variant={statusVariant[prediction.matchStatus] || "neutral"}>
-          {prediction.matchStatus || "SIN_ESTADO"}
+          {estadoTraducido}
         </Badge>
-      </div>
-
-      <div className="prediction-card__match">
-        <strong>{prediction.homeTeamName || "Equipo local"}</strong>
-        <span>vs</span>
-        <strong>{prediction.awayTeamName || "Equipo visitante"}</strong>
       </div>
 
       <p className="prediction-card__date">
         {formatearFecha(prediction.matchStartTime)}
       </p>
 
-      <div className="prediction-card__score">
-        <span>Pronóstico</span>
-        <strong>
-          {prediction.predictedHomeGoals} - {prediction.predictedAwayGoals}
-        </strong>
+      <div className="prediction-card__match">
+        <strong>{prediction.homeTeamName || "Equipo local"}</strong>
+        <div className="prediction-card__score">
+          <span>Tu pronóstico</span>
+          <strong>{marcadorPronosticado}</strong>
+        </div>
+        <strong>{prediction.awayTeamName || "Equipo visitante"}</strong>
       </div>
 
-      <div className="prediction-card__meta">
-        <div>
-          <span>Tendencia</span>
-          <strong>{prediction.predictedTrend || "Sin tendencia"}</strong>
+      {!finalizado && (
+        <div className="prediction-card__pending">
+          <div>
+            <span>Estado</span>
+            <strong>
+              {prediction.matchStatus === "EN_JUEGO" ? "Partido en juego" : "Pendiente"}
+            </strong>
+          </div>
+          <p>El resultado todavía no fue cargado.</p>
+          <Badge size="sm" variant="primary">
+            {tendenciaTraducida}
+          </Badge>
         </div>
-        <div>
-          <span>Resultado</span>
-          <strong>{obtenerResumen(prediction)}</strong>
-        </div>
-      </div>
+      )}
 
-      {exactHit && (
-        <p className="prediction-card__exact-hit">Acierto exacto</p>
+      {finalizado && (
+        <>
+          <div className="prediction-card__details">
+            <div>
+              <span>Tu pronóstico</span>
+              <strong>{marcadorPronosticado}</strong>
+            </div>
+            <div>
+              <span>Resultado final</span>
+              <strong>{obtenerResultadoFinal(prediction)}</strong>
+            </div>
+            <div>
+              <span>Puntos obtenidos</span>
+              <strong>{prediction.points ?? 0}</strong>
+            </div>
+          </div>
+
+          <div className="prediction-card__outcome">
+            <Badge size="sm" variant={tipoAcierto.variant}>
+              {tipoAcierto.label}
+            </Badge>
+            <span>{tendenciaTraducida}</span>
+          </div>
+        </>
       )}
     </Card>
   );

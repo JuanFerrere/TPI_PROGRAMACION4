@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import Badge from "../../components/ui/Badge.jsx";
 import Button from "../../components/ui/Button.jsx";
@@ -14,26 +14,47 @@ import {
 } from "../../services/tournamentService.js";
 import "../../App.css";
 
-const estados = ["DRAFT", "ACTIVE", "FINISHED", "ARCHIVED"];
-const formatos = ["GROUPS", "LEAGUE"];
+const estados = [
+  { value: "ACTIVE", label: "Activo", variant: "success" },
+  { value: "FINISHED", label: "Finalizado", variant: "primary" },
+];
 
-const formatoLabel = {
-  GROUPS: "Por grupos",
-  LEAGUE: "Tabla general",
-};
+const formatos = [
+  {
+    value: "GROUPS",
+    label: "Por grupos",
+    description: "Los equipos se organizan en grupos independientes.",
+  },
+  {
+    value: "LEAGUE",
+    label: "Tabla general",
+    description: "Todos los equipos compiten en una única tabla.",
+  },
+];
 
-const estadoVariant = {
-  DRAFT: "neutral",
-  ACTIVE: "success",
-  FINISHED: "primary",
-  ARCHIVED: "amber",
-};
+const estadoPorValor = estados.reduce((acc, estado) => {
+  acc[estado.value] = estado;
+  return acc;
+}, {});
+
+const formatoPorValor = formatos.reduce((acc, formato) => {
+  acc[formato.value] = formato;
+  return acc;
+}, {});
 
 function leerSesion() {
   return {
     token: localStorage.getItem("token"),
     role: localStorage.getItem("role"),
   };
+}
+
+function estadoEditable(status) {
+  return status === "FINISHED" ? "FINISHED" : "ACTIVE";
+}
+
+function formatoEditable(format) {
+  return format === "GROUPS" ? "GROUPS" : "LEAGUE";
 }
 
 function formatearFecha(fecha) {
@@ -69,6 +90,29 @@ function AdminTournamentsPage() {
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
 
+  const resumen = useMemo(
+    () =>
+      torneos.reduce(
+        (acc, torneo) => {
+          acc.total += 1;
+
+          if (torneo.status === "ACTIVE") {
+            acc.activos += 1;
+          }
+
+          if (torneo.status === "FINISHED") {
+            acc.finalizados += 1;
+          }
+
+          return acc;
+        },
+        { total: 0, activos: 0, finalizados: 0 }
+      ),
+    [torneos]
+  );
+
+  const formatoSeleccionado = formatoPorValor[format] || formatoPorValor.LEAGUE;
+
   const cargarTorneos = useCallback(async (mostrarCarga = true) => {
     if (mostrarCarga) {
       setCargando(true);
@@ -82,13 +126,13 @@ function AdminTournamentsPage() {
       setTorneos(lista);
       setStatusPorTorneo(
         lista.reduce((acc, torneo) => {
-          acc[torneo.id] = torneo.status;
+          acc[torneo.id] = estadoEditable(torneo.status);
           return acc;
         }, {})
       );
       setFormatPorTorneo(
         lista.reduce((acc, torneo) => {
-          acc[torneo.id] = torneo.format || "LEAGUE";
+          acc[torneo.id] = formatoEditable(torneo.format);
           return acc;
         }, {})
       );
@@ -146,7 +190,7 @@ function AdminTournamentsPage() {
     const status = statusPorTorneo[tournamentId];
 
     if (!status) {
-      setError("Selecciona un estado para el torneo.");
+      setError("Seleccioná un estado para el torneo.");
       return;
     }
 
@@ -169,7 +213,7 @@ function AdminTournamentsPage() {
     const nuevoFormato = formatPorTorneo[tournamentId];
 
     if (!nuevoFormato) {
-      setError("Selecciona un formato para el torneo.");
+      setError("Seleccioná un formato para el torneo.");
       return;
     }
 
@@ -195,11 +239,14 @@ function AdminTournamentsPage() {
   return (
     <main className="admin-page admin-tournaments-page">
       <section className="admin-shell">
-        <header className="admin-header">
+        <header className="admin-header admin-tournaments-header">
           <div>
-            <Badge variant="amber">Torneos</Badge>
-            <h1>Gestion de torneos</h1>
-            <p>Crea y administra las competencias disponibles en el Prode.</p>
+            <Badge variant="amber">TORNEOS</Badge>
+            <h1>Gestión de torneos</h1>
+            <p>
+              Creá competencias y administrá toda su configuración desde un
+              único lugar.
+            </p>
           </div>
 
           <div className="admin-header__actions">
@@ -209,9 +256,34 @@ function AdminTournamentsPage() {
           </div>
         </header>
 
-        <Card className="admin-tournament-form-card">
+        <section className="admin-tournament-summary" aria-label="Resumen de torneos">
+          <Card className="admin-tournament-summary-card">
+            <span>Total de torneos</span>
+            <strong>{resumen.total}</strong>
+          </Card>
+          <Card className="admin-tournament-summary-card">
+            <span>Activos</span>
+            <strong>{resumen.activos}</strong>
+          </Card>
+          <Card className="admin-tournament-summary-card">
+            <span>Finalizados</span>
+            <strong>{resumen.finalizados}</strong>
+          </Card>
+        </section>
+
+        <Card className="admin-tournament-form-card admin-tournament-form-card--featured">
+          <div className="admin-tournament-form-card__header">
+            <div>
+              <Badge size="sm" variant="amber">
+                NUEVA COMPETENCIA
+              </Badge>
+              <h2>Crear nuevo torneo</h2>
+              <p>Definí los datos principales de la competencia.</p>
+            </div>
+          </div>
+
           <form
-            className="admin-tournament-form"
+            className="admin-tournament-form admin-tournament-form--featured"
             onSubmit={manejarCrearTorneo}
           >
             <div className="admin-field">
@@ -229,9 +301,7 @@ function AdminTournamentsPage() {
             </div>
 
             <div className="admin-field">
-              <label htmlFor="tournamentDescription">
-                Descripcion opcional
-              </label>
+              <label htmlFor="tournamentDescription">Descripción opcional</label>
               <textarea
                 disabled={guardando}
                 id="tournamentDescription"
@@ -243,7 +313,7 @@ function AdminTournamentsPage() {
               />
             </div>
 
-            <div className="admin-field">
+            <div className="admin-field admin-field--format">
               <label htmlFor="tournamentFormat">Formato</label>
               <select
                 disabled={guardando}
@@ -252,14 +322,20 @@ function AdminTournamentsPage() {
                 onChange={(evento) => setFormat(evento.target.value)}
                 value={format}
               >
-                <option value="GROUPS">Por grupos</option>
-                <option value="LEAGUE">Tabla general</option>
+                {formatos.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
               </select>
+              <p className="admin-field__hint">{formatoSeleccionado.description}</p>
             </div>
 
-            <Button isLoading={guardando} type="submit">
-              {guardando ? "Creando..." : "Crear torneo"}
-            </Button>
+            <div className="admin-tournament-form__submit">
+              <Button isLoading={guardando} type="submit">
+                {guardando ? "Creando torneo..." : "Crear torneo"}
+              </Button>
+            </div>
           </form>
 
           {mensaje && (
@@ -290,109 +366,133 @@ function AdminTournamentsPage() {
             aria-label="Listado de torneos"
             className="admin-tournaments-list"
           >
-            {torneos.map((torneo) => (
-              <Card className="admin-tournament-card" key={torneo.id}>
-                <div className="admin-tournament-card__info">
-                  <Badge
-                    size="sm"
-                    variant={estadoVariant[torneo.status] || "neutral"}
-                  >
-                    {torneo.status}
-                  </Badge>
-                  <Badge size="sm" variant="primary">
-                    {formatoLabel[torneo.format || "LEAGUE"]}
-                  </Badge>
-                  <h2>{torneo.name || "Torneo sin nombre"}</h2>
-                  <p>
-                    {torneo.description ||
-                      "Este torneo todavia no tiene descripcion."}
-                  </p>
-                  <span>Creado: {formatearFecha(torneo.createdAt)}</span>
-                </div>
+            <div className="admin-tournaments-list__header">
+              <h2>Torneos creados</h2>
+              <p>
+                Seleccioná una competencia para modificarla o administrar su
+                contenido.
+              </p>
+            </div>
 
-                <div className="admin-tournament-card__actions">
-                  <div className="admin-field">
-                    <label htmlFor={`tournamentStatus-${torneo.id}`}>
-                      Estado
-                    </label>
-                    <select
-                      disabled={actualizandoId !== null}
-                      id={`tournamentStatus-${torneo.id}`}
-                      onChange={(evento) =>
-                        setStatusPorTorneo((actual) => ({
-                          ...actual,
-                          [torneo.id]: evento.target.value,
-                        }))
-                      }
-                      value={statusPorTorneo[torneo.id] || torneo.status}
-                    >
-                      {estados.map((estado) => (
-                        <option key={estado} value={estado}>
-                          {estado}
-                        </option>
-                      ))}
-                    </select>
+            {torneos.map((torneo) => {
+              const estadoActual = estadoEditable(torneo.status);
+              const formatoActual = formatoEditable(torneo.format);
+              const estado = estadoPorValor[estadoActual] || estadoPorValor.ACTIVE;
+              const formato = formatoPorValor[formatoActual] || formatoPorValor.LEAGUE;
+              const actualizandoEstado = actualizandoId === torneo.id;
+              const actualizandoFormato = actualizandoFormatoId === torneo.id;
+              const controlesDeshabilitados =
+                actualizandoEstado || actualizandoFormato;
+
+              return (
+                <Card className="admin-tournament-card" key={torneo.id}>
+                  <div className="admin-tournament-card__info">
+                    <div className="admin-tournament-card__badges">
+                      <Badge size="sm" variant={estado.variant}>
+                        {estado.label}
+                      </Badge>
+                      <Badge size="sm" variant="primary">
+                        {formato.label}
+                      </Badge>
+                    </div>
+                    <h2>{torneo.name || "Torneo sin nombre"}</h2>
+                    <p>
+                      {torneo.description ||
+                        "Este torneo todavía no tiene descripción."}
+                    </p>
+                    <span>Creado: {formatearFecha(torneo.createdAt)}</span>
                   </div>
 
-                  <Button
-                    disabled={actualizandoId !== null}
-                    isLoading={actualizandoId === torneo.id}
-                    onClick={() => manejarActualizarEstado(torneo.id)}
-                    type="button"
-                    variant="secondary"
-                  >
-                    {actualizandoId === torneo.id
-                      ? "Actualizando..."
-                      : "Actualizar estado"}
-                  </Button>
+                  <div className="admin-tournament-card__actions">
+                    <span className="admin-tournament-card__actions-title">
+                      Configuración rápida
+                    </span>
 
-                  <div className="admin-field">
-                    <label htmlFor={`tournamentFormat-${torneo.id}`}>
-                      Formato
-                    </label>
-                    <select
-                      disabled={
-                        actualizandoId !== null || actualizandoFormatoId !== null
-                      }
-                      id={`tournamentFormat-${torneo.id}`}
-                      onChange={(evento) =>
-                        setFormatPorTorneo((actual) => ({
-                          ...actual,
-                          [torneo.id]: evento.target.value,
-                        }))
-                      }
-                      value={formatPorTorneo[torneo.id] || torneo.format || "LEAGUE"}
+                    <div className="admin-tournament-card__control">
+                      <div className="admin-field">
+                        <label htmlFor={`tournamentStatus-${torneo.id}`}>
+                          Estado
+                        </label>
+                        <select
+                          disabled={controlesDeshabilitados}
+                          id={`tournamentStatus-${torneo.id}`}
+                          onChange={(evento) =>
+                            setStatusPorTorneo((actual) => ({
+                              ...actual,
+                              [torneo.id]: evento.target.value,
+                            }))
+                          }
+                          value={statusPorTorneo[torneo.id] || estadoActual}
+                        >
+                          {estados.map((item) => (
+                            <option key={item.value} value={item.value}>
+                              {item.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <Button
+                        disabled={controlesDeshabilitados}
+                        isLoading={actualizandoEstado}
+                        onClick={() => manejarActualizarEstado(torneo.id)}
+                        type="button"
+                        variant="secondary"
+                      >
+                        {actualizandoEstado
+                          ? "Actualizando..."
+                          : "Actualizar estado"}
+                      </Button>
+                    </div>
+
+                    <div className="admin-tournament-card__control">
+                      <div className="admin-field">
+                        <label htmlFor={`tournamentFormat-${torneo.id}`}>
+                          Formato
+                        </label>
+                        <select
+                          disabled={controlesDeshabilitados}
+                          id={`tournamentFormat-${torneo.id}`}
+                          onChange={(evento) =>
+                            setFormatPorTorneo((actual) => ({
+                              ...actual,
+                              [torneo.id]: evento.target.value,
+                            }))
+                          }
+                          value={formatPorTorneo[torneo.id] || formatoActual}
+                        >
+                          {formatos.map((item) => (
+                            <option key={item.value} value={item.value}>
+                              {item.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <Button
+                        disabled={controlesDeshabilitados}
+                        isLoading={actualizandoFormato}
+                        onClick={() => manejarActualizarFormato(torneo.id)}
+                        type="button"
+                        variant="secondary"
+                      >
+                        {actualizandoFormato
+                          ? "Actualizando..."
+                          : "Actualizar formato"}
+                      </Button>
+                    </div>
+
+                    <Button
+                      disabled={controlesDeshabilitados}
+                      onClick={() => navigate(`/admin/tournaments/${torneo.id}`)}
+                      type="button"
                     >
-                      {formatos.map((item) => (
-                        <option key={item} value={item}>
-                          {formatoLabel[item]}
-                        </option>
-                      ))}
-                    </select>
+                      Administrar torneo
+                    </Button>
                   </div>
-
-                  <Button
-                    disabled={actualizandoId !== null || actualizandoFormatoId !== null}
-                    isLoading={actualizandoFormatoId === torneo.id}
-                    onClick={() => manejarActualizarFormato(torneo.id)}
-                    type="button"
-                    variant="secondary"
-                  >
-                    {actualizandoFormatoId === torneo.id
-                      ? "Actualizando..."
-                      : "Actualizar formato"}
-                  </Button>
-
-                  <Button
-                    disabled={actualizandoId !== null || actualizandoFormatoId !== null}
-                    onClick={() => navigate(`/admin/tournaments/${torneo.id}`)}
-                    type="button"
-                  >
-                    Administrar torneo
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </section>
         )}
       </section>

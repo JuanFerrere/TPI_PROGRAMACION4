@@ -10,6 +10,12 @@ const statusVariant = {
   FINALIZADO: "success",
 };
 
+const statusLabel = {
+  POR_JUGARSE: "Por jugarse",
+  EN_JUEGO: "En juego",
+  FINALIZADO: "Finalizado",
+};
+
 function formatearFecha(fecha) {
   if (!fecha) {
     return "Fecha a confirmar";
@@ -41,41 +47,77 @@ function cargaPronosticoCerrada(fecha) {
   return startTime - Date.now() <= 30 * 60 * 1000;
 }
 
-function MatchCard({ match }) {
-  const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const status = match.status || "POR_JUGARSE";
-  const finalizado = status === "FINALIZADO";
-  const puedePronosticar = status === "POR_JUGARSE";
-  const pronosticoCerrado = puedePronosticar && cargaPronosticoCerrada(match.startTime);
-  const resultado =
+function tieneResultado(match) {
+  return (
     match.homeGoals !== null &&
     match.homeGoals !== undefined &&
     match.awayGoals !== null &&
     match.awayGoals !== undefined
-      ? `${match.homeGoals} - ${match.awayGoals}`
-      : "-";
+  );
+}
+
+function MatchCard({
+  match,
+  onSave,
+  onSaved,
+  predictionEnabled = true,
+  showTournamentBadge = false,
+  tournamentName,
+}) {
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const status = match.status || "POR_JUGARSE";
+  const finalizado = status === "FINALIZADO";
+  const puedePronosticar = predictionEnabled && status === "POR_JUGARSE";
+  const pronosticoCerrado = puedePronosticar && cargaPronosticoCerrada(match.startTime);
+  const resultado = tieneResultado(match)
+    ? `${match.homeGoals} - ${match.awayGoals}`
+    : "-";
+  const nombreTorneo = tournamentName || match.tournamentName;
+
+  function manejarGuardado() {
+    setMostrarFormulario(false);
+
+    if (onSaved) {
+      onSaved(match);
+    }
+  }
 
   return (
     <Card className="match-card">
       <div className="match-card__top">
-        <span>{match.matchDayName || "Fecha sin nombre"}</span>
+        <div className="match-card__meta">
+          {showTournamentBadge && nombreTorneo && (
+            <Badge size="sm" variant="success">
+              {nombreTorneo}
+            </Badge>
+          )}
+          <span className="match-card__matchday">
+            {match.matchDayName || "Sin fecha asignada"}
+          </span>
+        </div>
         <Badge size="sm" variant={statusVariant[status] || "neutral"}>
-          {status}
+          {statusLabel[status] || status}
         </Badge>
       </div>
 
       <div className="match-card__teams">
         <strong>{match.homeTeamName || "Equipo local"}</strong>
-        <span>vs</span>
+        <span>VS</span>
         <strong>{match.awayTeamName || "Equipo visitante"}</strong>
       </div>
 
       <p className="match-card__date">{formatearFecha(match.startTime)}</p>
 
-      <div className="match-card__result">
+      <div className={`match-card__result ${finalizado ? "match-card__result--final" : ""}`}>
         <span>{finalizado ? "Resultado final" : "Resultado pendiente"}</span>
         <strong>{finalizado ? resultado : "-"}</strong>
       </div>
+
+      {!predictionEnabled && status === "POR_JUGARSE" && (
+        <p className="match-card__closed">
+          Este torneo no permite nuevos pronósticos.
+        </p>
+      )}
 
       {puedePronosticar && !mostrarFormulario && (
         <>
@@ -90,7 +132,7 @@ function MatchCard({ match }) {
 
           {pronosticoCerrado && (
             <p className="match-card__closed">
-              La carga de pronósticos ya está cerrada.
+              La carga de pronósticos está cerrada.
             </p>
           )}
         </>
@@ -100,6 +142,8 @@ function MatchCard({ match }) {
         <PredictionForm
           match={match}
           onCancel={() => setMostrarFormulario(false)}
+          onSave={onSave}
+          onSaved={manejarGuardado}
         />
       )}
     </Card>

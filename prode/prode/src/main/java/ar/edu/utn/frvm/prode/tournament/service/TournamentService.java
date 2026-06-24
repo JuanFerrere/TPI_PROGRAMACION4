@@ -47,7 +47,7 @@ public class TournamentService {
 	}
 
 	/**
-	 * Crea un torneo nuevo con estado inicial DRAFT.
+	 * Crea un torneo nuevo con estado inicial ACTIVE.
 	 *
 	 * @param request DTO de entrada con nombre y descripcion opcional.
 	 * @return torneo creado como DTO de salida.
@@ -63,7 +63,7 @@ public class TournamentService {
 		}
 
 		Tournament tournament = new Tournament(name, description, format);
-		tournament.setStatus(TournamentStatus.DRAFT);
+		tournament.setStatus(TournamentStatus.ACTIVE);
 		Tournament savedTournament = tournamentRepository.save(tournament);
 		return toResponse(savedTournament);
 	}
@@ -119,7 +119,7 @@ public class TournamentService {
 	}
 
 	/**
-	 * Actualiza el formato de un torneo mientras sigue sin equipos asociados.
+	 * Actualiza el formato de un torneo activo mientras sigue sin equipos asociados.
 	 *
 	 * @param tournamentId identificador del torneo.
 	 * @param request DTO con el nuevo formato.
@@ -130,8 +130,8 @@ public class TournamentService {
 		Tournament tournament = getTournamentEntityById(tournamentId);
 		TournamentFormat format = parseFormat(request.format());
 
-		if (tournament.getStatus() != TournamentStatus.DRAFT) {
-			throw new BusinessRuleException("Solo se puede cambiar el formato de un torneo en DRAFT");
+		if (tournament.getStatus() != TournamentStatus.ACTIVE) {
+			throw new BusinessRuleException("Solo se puede cambiar el formato de un torneo activo");
 		}
 
 		if (tournamentTeamRepository.existsByTournamentId(tournamentId)) {

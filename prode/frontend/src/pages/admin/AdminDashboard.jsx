@@ -5,14 +5,11 @@ import Button from "../../components/ui/Button.jsx";
 import Card from "../../components/ui/Card.jsx";
 import "../../App.css";
 
-const adminCards = [
-  {
-    title: "Torneos",
-    description: "Crea competencias y administra su contenido.",
-    badge: "Base",
-    variant: "amber",
-    path: "/admin/tournaments",
-  },
+const adminJourney = [
+  "Torneo",
+  "Equipos y grupos",
+  "Fechas y partidos",
+  "Resultados",
 ];
 
 function leerSesion() {
@@ -61,8 +58,8 @@ function AdminDashboard() {
         <header className="admin-header">
           <div>
             <Badge variant="amber">ADMIN</Badge>
-            <h1>Panel de administracion</h1>
-            <p>Gestiona torneos y accede a sus herramientas internas.</p>
+            <h1>Panel de administración</h1>
+            <p>Gestioná los torneos y todo su contenido desde un único lugar.</p>
           </div>
 
           <div className="admin-header__actions">
@@ -70,38 +67,72 @@ function AdminDashboard() {
               Volver al dashboard
             </Button>
             <Button onClick={cerrarSesion} variant="danger">
-              Cerrar sesion
+              Cerrar sesión
             </Button>
           </div>
         </header>
 
-        <Card className="admin-welcome-card">
-          <span>Administrador</span>
-          <strong>{sesion.username || "Admin"}</strong>
-          <p>Acceso habilitado para configurar la operatoria del Prode UTN.</p>
+        <Card className="admin-welcome-card admin-welcome-card--compact">
+          <div className="admin-welcome-card__marker" aria-hidden="true">
+            AD
+          </div>
+          <div>
+            <span>Administrador</span>
+            <strong>{sesion.username || "Admin"}</strong>
+            <p>Acceso habilitado para configurar la operatoria del Prode UTN.</p>
+          </div>
         </Card>
 
         <section
           className="admin-grid admin-grid--single"
           aria-label="Herramientas administrativas"
         >
-          {adminCards.map((card) => (
-            <Card className="admin-action-card" key={card.title}>
-              <Badge size="sm" variant={card.variant}>
-                {card.badge}
+          <Card className="admin-primary-card">
+            <div className="admin-primary-card__content">
+              <Badge size="sm" variant="amber">
+                CENTRO DE GESTIÓN
               </Badge>
-              <h2>{card.title}</h2>
-              <p>{card.description}</p>
-              <Button
-                disabled={!card.path}
-                fullWidth
-                onClick={() => card.path && navigate(card.path)}
-                variant="secondary"
-              >
-                Gestionar
-              </Button>
-            </Card>
-          ))}
+              <h2>Torneos</h2>
+              <p>
+                Creá competencias y administrá desde cada torneo sus equipos,
+                fechas, partidos y resultados.
+              </p>
+              <div className="admin-primary-card__actions">
+                <Button onClick={() => navigate("/admin/tournaments")}>
+                  Gestionar torneos
+                </Button>
+              </div>
+            </div>
+
+            <div
+              className="admin-journey"
+              aria-label="Recorrido administrativo por torneo"
+            >
+              <span className="admin-journey__title">Flujo de gestión</span>
+              <div className="admin-journey__steps">
+                {adminJourney.map((step, index) => (
+                  <div className="admin-journey__item" key={step}>
+                    <div className="admin-journey-step">
+                      <span className="admin-journey-step__index">
+                        {index + 1}
+                      </span>
+                      <span>{step}</span>
+                    </div>
+                    {index < adminJourney.length - 1 && (
+                      <span className="admin-journey__arrow" aria-hidden="true">
+                        →
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="admin-fixture-lines" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+          </Card>
         </section>
       </section>
     </main>

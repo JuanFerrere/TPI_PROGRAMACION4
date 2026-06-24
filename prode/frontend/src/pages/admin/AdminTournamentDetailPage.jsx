@@ -8,30 +8,50 @@ import Spinner from "../../components/ui/Spinner.jsx";
 import { obtenerTorneoPorId } from "../../services/tournamentService.js";
 import "../../App.css";
 
-const secciones = [
+const seccionesBase = [
   {
+    number: "01",
+    label: "Participantes",
     title: "Equipos y grupos",
-    description: "Administra los equipos asociados a este torneo.",
+    leagueTitle: "Equipos",
+    description:
+      "Administrá los equipos asociados y organizalos según el formato del torneo.",
+    leagueDescription:
+      "Administrá los equipos asociados a la tabla general del torneo.",
+    actionLabel: "Gestionar equipos",
     path: "teams",
     enabled: true,
+    accent: "success",
   },
   {
+    number: "02",
+    label: "Calendario",
     title: "Fechas y partidos",
-    description: "Organiza las jornadas y carga los encuentros del torneo.",
+    description: "Organizá las jornadas, cruces y horarios de la competencia.",
+    actionLabel: "Gestionar calendario",
     path: "schedule",
     enabled: true,
+    accent: "primary",
   },
   {
+    number: "03",
+    label: "Marcadores",
     title: "Resultados",
-    description: "Carga los marcadores finales y actualiza los puntos del Prode.",
+    description: "Cargá los resultados finales y actualizá los puntos del Prode.",
+    actionLabel: "Gestionar resultados",
     path: "results",
     enabled: true,
+    accent: "amber",
   },
   {
+    number: "04",
+    label: "Fase final",
     title: "Eliminatorias",
-    description: "Genera la llave y avanza rondas.",
+    description: "Generá la llave y administrá el avance de las rondas finales.",
+    actionLabel: "Administrar llave",
     path: "knockout",
     enabled: true,
+    accent: "danger",
   },
 ];
 
@@ -40,12 +60,26 @@ const formatoLabel = {
   LEAGUE: "Tabla general",
 };
 
+const estadoLabel = {
+  DRAFT: "Borrador",
+  ACTIVE: "Activo",
+  FINISHED: "Finalizado",
+  ARCHIVED: "Archivado",
+};
+
 const estadoVariant = {
   DRAFT: "neutral",
   ACTIVE: "success",
   FINISHED: "primary",
   ARCHIVED: "amber",
 };
+
+const flujoAdministrativo = [
+  "Equipos",
+  "Fechas y partidos",
+  "Resultados",
+  "Eliminatorias",
+];
 
 function leerSesion() {
   return {
@@ -68,6 +102,22 @@ function formatearFecha(fecha) {
   return date.toLocaleString("es-AR", {
     dateStyle: "medium",
     timeStyle: "short",
+  });
+}
+
+function obtenerSecciones(format) {
+  const esLiga = format === "LEAGUE";
+
+  return seccionesBase.map((seccion) => {
+    if (seccion.path !== "teams" || !esLiga) {
+      return seccion;
+    }
+
+    return {
+      ...seccion,
+      title: seccion.leagueTitle,
+      description: seccion.leagueDescription,
+    };
   });
 }
 
@@ -131,7 +181,10 @@ function AdminTournamentDetailPage() {
           <div>
             <Badge variant="amber">Torneo</Badge>
             <h1>{torneo?.name || "Detalle de torneo"}</h1>
-            <p>Administra equipos, fechas, partidos y resultados del torneo.</p>
+            <p>
+              Administrá los equipos, fechas, partidos y resultados de esta
+              competencia.
+            </p>
           </div>
 
           <div className="admin-header__actions">
@@ -155,33 +208,74 @@ function AdminTournamentDetailPage() {
 
         {!cargando && !error && torneo && (
           <>
-            <Card className="admin-tournament-detail-card">
-              <Badge
-                size="sm"
-                variant={estadoVariant[torneo.status] || "neutral"}
+            <Card className="admin-tournament-detail-card admin-tournament-detail-card--hero">
+              <div className="admin-tournament-detail-card__content">
+                <div className="admin-tournament-detail-card__badges">
+                  <Badge
+                    size="sm"
+                    variant={estadoVariant[torneo.status] || "neutral"}
+                  >
+                    {estadoLabel[torneo.status] || "Estado no disponible"}
+                  </Badge>
+                  <Badge size="sm" variant="primary">
+                    {formatoLabel[torneo.format || "LEAGUE"]}
+                  </Badge>
+                </div>
+                <h2>{torneo.name}</h2>
+                <p>
+                  {torneo.description ||
+                    "Este torneo todavía no tiene descripción."}
+                </p>
+                <span className="admin-tournament-detail-card__date">
+                  Creado: {formatearFecha(torneo.createdAt)}
+                </span>
+              </div>
+
+              <div
+                className="admin-tournament-flow"
+                aria-label="Flujo administrativo del torneo"
               >
-                {torneo.status}
-              </Badge>
-              <Badge size="sm" variant="primary">
-                {formatoLabel[torneo.format || "LEAGUE"]}
-              </Badge>
-              <h2>{torneo.name}</h2>
-              <p>
-                {torneo.description ||
-                  "Este torneo todavia no tiene descripcion."}
-              </p>
-              <span>Creado: {formatearFecha(torneo.createdAt)}</span>
+                <span className="admin-tournament-flow__title">
+                  Flujo operativo
+                </span>
+                <div className="admin-tournament-flow__steps">
+                  {flujoAdministrativo.map((paso, index) => (
+                    <div className="admin-tournament-flow__item" key={paso}>
+                      <span className="admin-tournament-flow__step">{paso}</span>
+                      {index < flujoAdministrativo.length - 1 && (
+                        <span
+                          className="admin-tournament-flow__arrow"
+                          aria-hidden="true"
+                        >
+                          →
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </Card>
 
             <section
               aria-label="Secciones del torneo"
               className="admin-tournament-sections"
             >
-              {secciones.map((seccion) => (
-                <Card className="admin-tournament-section-card" key={seccion.title}>
-                  <Badge size="sm" variant="neutral">
-                    {seccion.enabled ? "Disponible" : "Proximamente"}
-                  </Badge>
+              {obtenerSecciones(torneo.format || "LEAGUE").map((seccion) => (
+                <Card
+                  className={`admin-tournament-section-card admin-tournament-section-card--${seccion.accent}`}
+                  key={seccion.path}
+                >
+                  <div className="admin-tournament-section-card__top">
+                    <span className="admin-tournament-section-card__number">
+                      {seccion.number}
+                    </span>
+                    <Badge size="sm" variant={seccion.enabled ? "success" : "neutral"}>
+                      {seccion.enabled ? "Disponible" : "No disponible"}
+                    </Badge>
+                  </div>
+                  <span className="admin-tournament-section-card__label">
+                    {seccion.label}
+                  </span>
                   <h2>{seccion.title}</h2>
                   <p>{seccion.description}</p>
                   <Button
@@ -193,7 +287,7 @@ function AdminTournamentDetailPage() {
                     }
                     variant="secondary"
                   >
-                    {seccion.path === "knockout" ? "Administrar llave" : "Gestionar"}
+                    {seccion.actionLabel}
                   </Button>
                 </Card>
               ))}

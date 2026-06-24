@@ -75,7 +75,7 @@ public class Tournament {
 	@PrePersist
 	public void prePersist() {
 		if (this.status == null) {
-			this.status = TournamentStatus.DRAFT;
+			this.status = TournamentStatus.ACTIVE;
 		}
 		if (this.format == null) {
 			this.format = TournamentFormat.LEAGUE;
