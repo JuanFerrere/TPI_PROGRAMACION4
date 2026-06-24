@@ -175,14 +175,33 @@ public class TournamentMatchService {
         validateTournamentIsNotDraftOrArchived(tournament);
         Match match = getMatchById(tournamentId, matchId);
         validateFinishedTournamentOnlyCorrectsResults(tournament, match);
-        validateKnockoutResult(tournamentId, match, request.homeGoals(), request.awayGoals());
 
-        ResultTrend resultTrend = calculateResultTrend(request.homeGoals(), request.awayGoals());
+        validateKnockoutResult(
+                tournamentId,
+                match,
+                request.homeGoals(),
+                request.awayGoals(),
+                request.homePenaltyGoals(),
+                request.awayPenaltyGoals()
+        );
+
+        ResultTrend resultTrend = calculateResultTrend(
+                request.homeGoals(),
+                request.awayGoals()
+        );
         match.setHomeGoals(request.homeGoals());
         match.setAwayGoals(request.awayGoals());
+        match.setHomePenaltyGoals(request.homePenaltyGoals());
+        match.setAwayPenaltyGoals(request.awayPenaltyGoals());
         match.setResultTrend(resultTrend);
         match.setStatus(MatchStatus.FINALIZADO);
-        match.setWinnerTeam(resolveWinnerTeam(match, request.homeGoals(), request.awayGoals()));
+        match.setWinnerTeam(resolveWinnerTeam(
+                match,
+                request.homeGoals(),
+                request.awayGoals(),
+                request.homePenaltyGoals(),
+                request.awayPenaltyGoals()
+        ));
 
         Match savedMatch = matchRepository.save(match);
         predictionScoringService.scoreMatchPredictions(savedMatch);
@@ -287,19 +306,52 @@ public class TournamentMatchService {
         }
     }
 
-    private void validateKnockoutResult(Long tournamentId, Match match, int homeGoals, int awayGoals) {
+    private void validateKnockoutResult(
+            Long tournamentId,
+            Match match,
+            int homeGoals,
+            int awayGoals,
+            Integer homePenaltyGoals,
+            Integer awayPenaltyGoals
+    ) {
         if (effectivePhase(match) != MatchPhase.KNOCKOUT) {
+            if (homePenaltyGoals != null || awayPenaltyGoals != null) {
+                throw new BusinessRuleException(
+                        "Los penales solo pueden cargarse en partidos eliminatorios"
+                );
+            }
+
             return;
         }
 
-        if (homeGoals == awayGoals) {
-            throw new BusinessRuleException("No se permite empate en un partido eliminatorio");
+        boolean empate = homeGoals == awayGoals;
+
+        if (empate) {
+            if (homePenaltyGoals == null || awayPenaltyGoals == null) {
+                throw new BusinessRuleException(
+                        "Si el partido eliminatorio termina empatado, se deben cargar los penales"
+                );
+            }
+
+            if (homePenaltyGoals.equals(awayPenaltyGoals)) {
+                throw new BusinessRuleException(
+                        "La definición por penales no puede terminar empatada"
+                );
+            }
+        } else {
+            if (homePenaltyGoals != null || awayPenaltyGoals != null) {
+                throw new BusinessRuleException(
+                        "Solo se pueden cargar penales cuando el partido termina empatado"
+                );
+            }
         }
 
         if (match.getStatus() == MatchStatus.FINALIZADO
                 && match.getKnockoutRound() != null
                 && existsNextRound(tournamentId, match.getKnockoutRound())) {
-            throw new BusinessRuleException("No se puede corregir el resultado porque ya se generó una ronda posterior");
+            throw new BusinessRuleException(
+                    "No se puede corregir el resultado porque ya se generó una ronda posterior"
+            );
         }
     }
 
@@ -390,12 +442,32 @@ public class TournamentMatchService {
         return ResultTrend.EMPATE;
     }
 
-    private Team resolveWinnerTeam(Match match, int homeGoals, int awayGoals) {
+    private Team resolveWinnerTeam(
+            Match match,
+            int homeGoals,
+            int awayGoals,
+            Integer homePenaltyGoals,
+            Integer awayPenaltyGoals
+    ) {
         if (effectivePhase(match) != MatchPhase.KNOCKOUT) {
             return null;
         }
 
-        return homeGoals > awayGoals ? match.getHomeTeam() : match.getAwayTeam();
+        if (homeGoals > awayGoals) {
+            return match.getHomeTeam();
+        }
+
+        if (awayGoals > homeGoals) {
+            return match.getAwayTeam();
+        }
+
+        if (homePenaltyGoals != null && awayPenaltyGoals != null) {
+            return homePenaltyGoals > awayPenaltyGoals
+                    ? match.getHomeTeam()
+                    : match.getAwayTeam();
+        }
+
+        return null;
     }
 
     private KnockoutRound nextRound(KnockoutRound knockoutRound) {
@@ -448,6 +520,8 @@ public class TournamentMatchService {
                 match.getStatus(),
                 match.getHomeGoals(),
                 match.getAwayGoals(),
+                match.getHomePenaltyGoals(),
+                match.getAwayPenaltyGoals(),
                 match.getResultTrend(),
                 effectivePhase(match),
                 match.getKnockoutRound(),

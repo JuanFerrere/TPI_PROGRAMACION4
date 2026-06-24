@@ -1,9 +1,9 @@
 package ar.edu.utn.frvm.prode.tournament.dto;
 
+import java.time.Instant;
+
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
 import ar.edu.utn.frvm.prode.match.entity.ResultTrend;
-
-import java.time.Instant;
 
 /**
  * Partido dentro de una ronda eliminatoria.
@@ -20,21 +20,25 @@ import java.time.Instant;
  * @param awayGoals goles del visitante, si ya existe resultado.
  * @param resultTrend tendencia real, si ya existe resultado.
  * @param winnerTeamId id del ganador, si el partido eliminatorio ya finalizo.
- * @param winnerTeamName nombre del ganador, si el partido eliminatorio ya finalizo.
+ * @param winnerTeamName nombre del ganador, si el partido eliminatorio ya
+ * finalizo.
  */
 public record KnockoutMatchResponse(
-		Long matchId,
-		Integer bracketPosition,
-		Long homeTeamId,
-		String homeTeamName,
-		Long awayTeamId,
-		String awayTeamName,
-		Instant startTime,
-		MatchStatus status,
-		Integer homeGoals,
-		Integer awayGoals,
-		ResultTrend resultTrend,
-		Long winnerTeamId,
-		String winnerTeamName
-) {
+        Long matchId,
+        Integer bracketPosition,
+        Long homeTeamId,
+        String homeTeamName,
+        Long awayTeamId,
+        String awayTeamName,
+        Instant startTime,
+        MatchStatus status,
+        Integer homeGoals,
+        Integer awayGoals,
+        Integer homePenaltyGoals,
+        Integer awayPenaltyGoals,
+        ResultTrend resultTrend,
+        Long winnerTeamId,
+        String winnerTeamName
+        ) {
+
 }

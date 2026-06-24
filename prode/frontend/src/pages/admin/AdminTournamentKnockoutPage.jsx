@@ -43,18 +43,35 @@ function tienePartidos(rounds) {
 
 function mapearResultados(rounds) {
   return rounds.reduce((acc, round) => {
-    const matches = Array.isArray(round.matches) ? round.matches : [];
+    const matches = Array.isArray(round.matches)
+      ? round.matches
+      : [];
 
     for (const match of matches) {
       acc[match.matchId] = {
         homeGoals:
-          match.homeGoals === null || match.homeGoals === undefined
+          match.homeGoals === null ||
+            match.homeGoals === undefined
             ? ""
             : String(match.homeGoals),
+
         awayGoals:
-          match.awayGoals === null || match.awayGoals === undefined
+          match.awayGoals === null ||
+            match.awayGoals === undefined
             ? ""
             : String(match.awayGoals),
+
+        homePenaltyGoals:
+          match.homePenaltyGoals === null ||
+            match.homePenaltyGoals === undefined
+            ? ""
+            : String(match.homePenaltyGoals),
+
+        awayPenaltyGoals:
+          match.awayPenaltyGoals === null ||
+            match.awayPenaltyGoals === undefined
+            ? ""
+            : String(match.awayPenaltyGoals),
       };
     }
 
@@ -80,8 +97,13 @@ function validarGoles(resultado) {
   const homeGoals = Number(resultado?.homeGoals);
   const awayGoals = Number(resultado?.awayGoals);
 
-  if (resultado?.homeGoals === "" || resultado?.awayGoals === "") {
-    throw new Error("Los dos campos de goles son obligatorios.");
+  if (
+    resultado?.homeGoals === "" ||
+    resultado?.awayGoals === ""
+  ) {
+    throw new Error(
+      "Los dos campos de goles son obligatorios."
+    );
   }
 
   if (
@@ -90,10 +112,60 @@ function validarGoles(resultado) {
     homeGoals < 0 ||
     awayGoals < 0
   ) {
-    throw new Error("Los goles deben ser enteros mayores o iguales a 0.");
+    throw new Error(
+      "Los goles deben ser enteros mayores o iguales a 0."
+    );
   }
 
-  return { homeGoals, awayGoals };
+  let homePenaltyGoals = null;
+  let awayPenaltyGoals = null;
+
+  const partidoEmpatado = homeGoals === awayGoals;
+
+  if (partidoEmpatado) {
+    if (
+      resultado?.homePenaltyGoals === "" ||
+      resultado?.awayPenaltyGoals === "" ||
+      resultado?.homePenaltyGoals === undefined ||
+      resultado?.awayPenaltyGoals === undefined
+    ) {
+      throw new Error(
+        "Si el partido termina empatado, se deben cargar los penales."
+      );
+    }
+
+    homePenaltyGoals = Number(
+      resultado.homePenaltyGoals
+    );
+
+    awayPenaltyGoals = Number(
+      resultado.awayPenaltyGoals
+    );
+
+    if (
+      !Number.isInteger(homePenaltyGoals) ||
+      !Number.isInteger(awayPenaltyGoals) ||
+      homePenaltyGoals < 0 ||
+      awayPenaltyGoals < 0
+    ) {
+      throw new Error(
+        "Los goles por penales deben ser números enteros mayores o iguales a 0."
+      );
+    }
+
+    if (homePenaltyGoals === awayPenaltyGoals) {
+      throw new Error(
+        "La definición por penales no puede terminar empatada."
+      );
+    }
+  }
+
+  return {
+    homeGoals,
+    awayGoals,
+    homePenaltyGoals,
+    awayPenaltyGoals,
+  };
 }
 
 function AdminTournamentKnockoutPage() {
@@ -253,8 +325,21 @@ function AdminTournamentKnockoutPage() {
     setError("");
 
     try {
-      const { homeGoals, awayGoals } = validarGoles(resultados[match.matchId]);
-      await guardarResultado(tournamentId, match.matchId, homeGoals, awayGoals);
+      const {
+        homeGoals,
+        awayGoals,
+        homePenaltyGoals,
+        awayPenaltyGoals,
+      } = validarGoles(resultados[match.matchId]);
+
+      await guardarResultado(
+        tournamentId,
+        match.matchId,
+        homeGoals,
+        awayGoals,
+        homePenaltyGoals,
+        awayPenaltyGoals
+      );
       await recargarLlave();
       setMensaje("Resultado eliminatorio guardado correctamente.");
     } catch (error) {

@@ -1,11 +1,11 @@
 package ar.edu.utn.frvm.prode.tournament.dto;
 
+import java.time.Instant;
+
 import ar.edu.utn.frvm.prode.match.entity.KnockoutRound;
 import ar.edu.utn.frvm.prode.match.entity.MatchPhase;
 import ar.edu.utn.frvm.prode.match.entity.MatchStatus;
 import ar.edu.utn.frvm.prode.match.entity.ResultTrend;
-
-import java.time.Instant;
 
 /**
  * DTO de salida para partidos de torneo.
@@ -31,30 +31,34 @@ import java.time.Instant;
  * @param knockoutRound ronda eliminatoria, si aplica.
  * @param bracketPosition posicion dentro de la llave, si aplica.
  * @param winnerTeamId id del ganador en partidos eliminatorios finalizados.
- * @param winnerTeamName nombre del ganador en partidos eliminatorios finalizados.
+ * @param winnerTeamName nombre del ganador en partidos eliminatorios
+ * finalizados.
  */
 public record TournamentMatchResponse(
-		Long id,
-		Long tournamentId,
-		Long matchDayId,
-		String matchDayName,
-		Long homeTeamId,
-		Long homeTournamentTeamId,
-		String homeTeamName,
-		String homeGroupName,
-		Long awayTeamId,
-		Long awayTournamentTeamId,
-		String awayTeamName,
-		String awayGroupName,
-		Instant startTime,
-		MatchStatus status,
-		Integer homeGoals,
-		Integer awayGoals,
-		ResultTrend resultTrend,
-		MatchPhase phase,
-		KnockoutRound knockoutRound,
-		Integer bracketPosition,
-		Long winnerTeamId,
-		String winnerTeamName
-) {
+        Long id,
+        Long tournamentId,
+        Long matchDayId,
+        String matchDayName,
+        Long homeTeamId,
+        Long homeTournamentTeamId,
+        String homeTeamName,
+        String homeGroupName,
+        Long awayTeamId,
+        Long awayTournamentTeamId,
+        String awayTeamName,
+        String awayGroupName,
+        Instant startTime,
+        MatchStatus status,
+        Integer homeGoals,
+        Integer awayGoals,
+        Integer homePenaltyGoals,
+        Integer awayPenaltyGoals,
+        ResultTrend resultTrend,
+        MatchPhase phase,
+        KnockoutRound knockoutRound,
+        Integer bracketPosition,
+        Long winnerTeamId,
+        String winnerTeamName
+        ) {
+
 }

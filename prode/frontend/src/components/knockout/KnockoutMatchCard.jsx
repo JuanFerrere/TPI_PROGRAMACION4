@@ -54,6 +54,16 @@ function KnockoutMatchCard({
   const hasResult = tieneResultado(match);
   const homeWinner = match.winnerTeamId && match.winnerTeamId === match.homeTeamId;
   const awayWinner = match.winnerTeamId && match.winnerTeamId === match.awayTeamId;
+  const tieneGolesCargados =
+    resultValue?.homeGoals !== "" &&
+    resultValue?.homeGoals !== undefined &&
+    resultValue?.awayGoals !== "" &&
+    resultValue?.awayGoals !== undefined;
+
+  const resultadoEmpatado =
+    tieneGolesCargados &&
+    Number(resultValue.homeGoals) ===
+    Number(resultValue.awayGoals);
 
   return (
     <Card className="knockout-match-card">
@@ -86,16 +96,24 @@ function KnockoutMatchCard({
         )}
       </div>
 
+      ```jsx
       {editable && (
         <div className="knockout-result-form">
           <div className="admin-field">
-            <label htmlFor={`homeGoals-${match.matchId}`}>{match.homeTeamName}</label>
+            <label htmlFor={`homeGoals-${match.matchId}`}>
+              {match.homeTeamName}
+            </label>
+
             <input
               disabled={isSaving}
               id={`homeGoals-${match.matchId}`}
               min={0}
               onChange={(evento) =>
-                onResultChange(match.matchId, "homeGoals", evento.target.value)
+                onResultChange(
+                  match.matchId,
+                  "homeGoals",
+                  evento.target.value
+                )
               }
               type="number"
               value={resultValue?.homeGoals ?? ""}
@@ -103,18 +121,71 @@ function KnockoutMatchCard({
           </div>
 
           <div className="admin-field">
-            <label htmlFor={`awayGoals-${match.matchId}`}>{match.awayTeamName}</label>
+            <label htmlFor={`awayGoals-${match.matchId}`}>
+              {match.awayTeamName}
+            </label>
+
             <input
               disabled={isSaving}
               id={`awayGoals-${match.matchId}`}
               min={0}
               onChange={(evento) =>
-                onResultChange(match.matchId, "awayGoals", evento.target.value)
+                onResultChange(
+                  match.matchId,
+                  "awayGoals",
+                  evento.target.value
+                )
               }
               type="number"
               value={resultValue?.awayGoals ?? ""}
             />
           </div>
+
+          {resultadoEmpatado && (
+            <>
+              <div className="admin-field">
+                <label htmlFor={`homePenaltyGoals-${match.matchId}`}>
+                  Penales de {match.homeTeamName}
+                </label>
+
+                <input
+                  disabled={isSaving}
+                  id={`homePenaltyGoals-${match.matchId}`}
+                  min={0}
+                  onChange={(evento) =>
+                    onResultChange(
+                      match.matchId,
+                      "homePenaltyGoals",
+                      evento.target.value
+                    )
+                  }
+                  type="number"
+                  value={resultValue?.homePenaltyGoals ?? ""}
+                />
+              </div>
+
+              <div className="admin-field">
+                <label htmlFor={`awayPenaltyGoals-${match.matchId}`}>
+                  Penales de {match.awayTeamName}
+                </label>
+
+                <input
+                  disabled={isSaving}
+                  id={`awayPenaltyGoals-${match.matchId}`}
+                  min={0}
+                  onChange={(evento) =>
+                    onResultChange(
+                      match.matchId,
+                      "awayPenaltyGoals",
+                      evento.target.value
+                    )
+                  }
+                  type="number"
+                  value={resultValue?.awayPenaltyGoals ?? ""}
+                />
+              </div>
+            </>
+          )}
 
           <Button
             isLoading={isSaving}
@@ -126,6 +197,8 @@ function KnockoutMatchCard({
           </Button>
         </div>
       )}
+      ```
+
     </Card>
   );
 }

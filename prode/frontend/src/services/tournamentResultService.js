@@ -65,7 +65,14 @@ export async function obtenerPartidosParaResultados(tournamentId, filtros = {}) 
   return leerRespuesta(respuesta);
 }
 
-export async function guardarResultado(tournamentId, matchId, homeGoals, awayGoals) {
+export async function guardarResultado(
+  tournamentId,
+  matchId,
+  homeGoals,
+  awayGoals,
+  homePenaltyGoals = null,
+  awayPenaltyGoals = null
+) {
   const token = obtenerToken();
 
   const respuesta = await fetch(
@@ -76,12 +83,20 @@ export async function guardarResultado(tournamentId, matchId, homeGoals, awayGoa
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ homeGoals, awayGoals }),
+      body: JSON.stringify({
+        homeGoals,
+        awayGoals,
+        homePenaltyGoals,
+        awayPenaltyGoals,
+      }),
     }
   );
 
   if (!respuesta.ok) {
-    await manejarError(respuesta, "No se pudo guardar el resultado.");
+    await manejarError(
+      respuesta,
+      "No se pudo guardar el resultado."
+    );
   }
 
   return leerRespuesta(respuesta);
