@@ -15,31 +15,31 @@ const dashboardCards = [
     actionLabel: "Ver torneos",
   },
   {
-    title: "Próximos partidos",
+    title: "Proximos partidos",
     badge: "Fixture",
-    description: "Consultá los partidos disponibles para cargar pronósticos.",
+    description: "Consulta los partidos disponibles para cargar pronosticos.",
     variant: "primary",
     path: "/matches",
     actionLabel: "Ver partidos",
   },
   {
-    title: "Mis pronósticos",
+    title: "Mis pronosticos",
     badge: "Pendientes",
-    description: "Revisá tus predicciones y prepará la próxima fecha.",
+    description: "Revisa tus predicciones y prepara la proxima fecha.",
     variant: "amber",
     path: "/predictions",
-    actionLabel: "Ver pronósticos",
+    actionLabel: "Ver pronosticos",
   },
   {
     title: "Ranking global",
     badge: "Competencia",
-    description: "Seguí tu posición y compará puntos con otros jugadores.",
+    description: "Segui tu posicion y compara puntos con otros jugadores.",
     variant: "success",
   },
   {
     title: "Grupos privados",
     badge: "Amigos",
-    description: "Organizá competencias privadas cuando la función esté lista.",
+    description: "Organiza competencias privadas cuando la funcion este lista.",
     variant: "neutral",
   },
 ];
@@ -47,7 +47,7 @@ const dashboardCards = [
 const adminCard = {
   title: "Panel admin",
   badge: "ADMIN",
-  description: "Gestioná equipos, fechas, partidos y resultados.",
+  description: "Gestiona equipos, fechas, partidos y resultados.",
   variant: "danger",
   path: "/admin",
   actionLabel: "Ir al panel admin",
@@ -86,21 +86,29 @@ function UserDashboard() {
     return null;
   }
 
-  const cards =
-    sesion.role === "ADMIN" ? [...dashboardCards, adminCard] : dashboardCards;
+  const esAdmin = sesion.role === "ADMIN";
+  const cards = esAdmin ? [dashboardCards[0], adminCard] : dashboardCards;
 
   return (
     <main className="dashboard-page">
       <section className="dashboard-shell">
         <header className="dashboard-header">
           <div>
-            <Badge variant="success">Sesión activa</Badge>
-            <h1>Hola, {sesion.username || "Usuario"}</h1>
-            <p>Tu panel de Prode UTN ya está listo para las próximas jugadas.</p>
+            <Badge variant="success">Sesion activa</Badge>
+            <h1>
+              {esAdmin
+                ? `Panel administrativo, ${sesion.username || "Admin"}`
+                : `Hola, ${sesion.username || "Usuario"}`}
+            </h1>
+            <p>
+              {esAdmin
+                ? "Gestiona torneos y accede a las herramientas administrativas."
+                : "Tu panel de Prode UTN ya esta listo para las proximas jugadas."}
+            </p>
           </div>
 
           <Button onClick={cerrarSesion} variant="secondary">
-            Cerrar sesión
+            Cerrar sesion
           </Button>
         </header>
 
@@ -133,7 +141,7 @@ function UserDashboard() {
                 onClick={() => card.path && navigate(card.path)}
                 variant="secondary"
               >
-                {card.actionLabel || "Próximamente"}
+                {card.actionLabel || "Proximamente"}
               </Button>
             </Card>
           ))}

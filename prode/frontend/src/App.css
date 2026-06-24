@@ -1491,6 +1491,10 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.admin-grid--single {
+  grid-template-columns: minmax(280px, 420px);
+}
+
 .admin-action-card {
   display: flex;
   flex-direction: column;

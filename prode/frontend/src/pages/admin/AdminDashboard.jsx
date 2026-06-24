@@ -13,30 +13,6 @@ const adminCards = [
     variant: "amber",
     path: "/admin/tournaments",
   },
-  {
-    title: "Equipos",
-    description: "Los equipos se administraran dentro de cada torneo.",
-    badge: "Clubes",
-    variant: "primary",
-  },
-  {
-    title: "Fechas",
-    description: "Organizar las fechas del Prode.",
-    badge: "Calendario",
-    variant: "amber",
-  },
-  {
-    title: "Partidos",
-    description: "Crear partidos y definir horarios.",
-    badge: "Fixture",
-    variant: "success",
-  },
-  {
-    title: "Resultados",
-    description: "Iniciar partidos y cargar resultados.",
-    badge: "Carga final",
-    variant: "danger",
-  },
 ];
 
 function leerSesion() {
@@ -85,8 +61,8 @@ function AdminDashboard() {
         <header className="admin-header">
           <div>
             <Badge variant="amber">ADMIN</Badge>
-            <h1>Panel de administración</h1>
-            <p>Gestioná equipos, fechas, partidos y resultados.</p>
+            <h1>Panel de administracion</h1>
+            <p>Gestiona torneos y accede a sus herramientas internas.</p>
           </div>
 
           <div className="admin-header__actions">
@@ -94,7 +70,7 @@ function AdminDashboard() {
               Volver al dashboard
             </Button>
             <Button onClick={cerrarSesion} variant="danger">
-              Cerrar sesión
+              Cerrar sesion
             </Button>
           </div>
         </header>
@@ -105,7 +81,10 @@ function AdminDashboard() {
           <p>Acceso habilitado para configurar la operatoria del Prode UTN.</p>
         </Card>
 
-        <section className="admin-grid" aria-label="Herramientas administrativas">
+        <section
+          className="admin-grid admin-grid--single"
+          aria-label="Herramientas administrativas"
+        >
           {adminCards.map((card) => (
             <Card className="admin-action-card" key={card.title}>
               <Badge size="sm" variant={card.variant}>
