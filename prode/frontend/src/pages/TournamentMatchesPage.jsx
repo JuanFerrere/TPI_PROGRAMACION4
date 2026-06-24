@@ -21,6 +21,12 @@ const statusVariant = {
   FINALIZADO: "success",
 };
 
+const statusLabel = {
+  POR_JUGARSE: "Por jugarse",
+  EN_JUEGO: "En juego",
+  FINALIZADO: "Finalizado",
+};
+
 function formatearFecha(fecha) {
   if (!fecha) {
     return "Fecha a confirmar";
@@ -53,8 +59,32 @@ function cargaPronosticoCerrada(fecha) {
 }
 
 function tieneResultado(partido) {
-  return partido.homeGoals !== null && partido.homeGoals !== undefined &&
-    partido.awayGoals !== null && partido.awayGoals !== undefined;
+  return (
+    partido.homeGoals !== null &&
+    partido.homeGoals !== undefined &&
+    partido.awayGoals !== null &&
+    partido.awayGoals !== undefined
+  );
+}
+
+function obtenerResultado(partido) {
+  if (!tieneResultado(partido)) {
+    return "-";
+  }
+
+  return `${partido.homeGoals} - ${partido.awayGoals}`;
+}
+
+function obtenerClasePartido({ cerrado, finalizado, puedePronosticar }) {
+  if (finalizado) {
+    return "finished";
+  }
+
+  if (cerrado || !puedePronosticar) {
+    return "closed";
+  }
+
+  return "upcoming";
 }
 
 function TournamentMatchesPage() {
@@ -75,7 +105,7 @@ function TournamentMatchesPage() {
         acc[prediction.matchId] = prediction;
         return acc;
       }, {}),
-    [pronosticos]
+    [pronosticos],
   );
 
   const fechas = useMemo(() => {
@@ -88,6 +118,21 @@ function TournamentMatchesPage() {
 
     return Object.entries(map).map(([id, name]) => ({ id, name }));
   }, [todosLosPartidos]);
+
+  const fechaSeleccionada =
+    fechas.find((fecha) => fecha.id === matchDayId)?.name || "Todas";
+
+  const resumen = useMemo(() => {
+    const total = partidos.length;
+    const porJugarse = partidos.filter(
+      (partido) => partido.status === "POR_JUGARSE",
+    ).length;
+    const finalizados = partidos.filter(
+      (partido) => partido.status === "FINALIZADO",
+    ).length;
+
+    return { finalizados, porJugarse, total };
+  }, [partidos]);
 
   const cargarPartidosYPronosticos = useCallback(async () => {
     const [partidosData, pronosticosData] = await Promise.all([
@@ -145,12 +190,13 @@ function TournamentMatchesPage() {
   }
 
   return (
-    <main className="matches-page">
-      <section className="matches-shell">
-        <header className="matches-header">
+    <main className="matches-page tournament-matches-page">
+      <section className="matches-shell tournament-matches-shell">
+        <header className="matches-header tournament-matches-header">
           <div>
+            <Badge variant="primary">FIXTURE DEL TORNEO</Badge>
             <h1>{torneo?.name || "Partidos"}</h1>
-            <p>Partidos y pronosticos exclusivos de este torneo.</p>
+            <p>Partidos y pronósticos exclusivos de esta competencia.</p>
           </div>
 
           <div className="matches-header__actions">
@@ -164,13 +210,13 @@ function TournamentMatchesPage() {
               onClick={() => navigate(`/tournaments/${tournamentId}/predictions`)}
               variant="secondary"
             >
-              Mis pronosticos
+              Mis pronósticos
             </Button>
           </div>
         </header>
 
         {cargando && (
-          <div className="matches-loading" role="status">
+          <div className="matches-loading tournament-matches-loading" role="status">
             <Spinner size={28} />
             <span>Cargando partidos...</span>
           </div>
@@ -180,9 +226,49 @@ function TournamentMatchesPage() {
 
         {!cargando && !error && (
           <>
-            <Card className="tournament-filter-card">
-              <div className="admin-field">
-                <label htmlFor="tournamentMatchDay">Fecha</label>
+            <Card className="tournament-matches-hero">
+              <div>
+                <Badge size="sm" variant="primary">
+                  Central interna
+                </Badge>
+                <h2>{torneo?.name || "Torneo"}</h2>
+                <p>
+                  Fecha seleccionada: <strong>{fechaSeleccionada}</strong>
+                </p>
+              </div>
+
+              <div className="tournament-matches-summary">
+                <div>
+                  <span>Partidos visibles</span>
+                  <strong>{resumen.total}</strong>
+                </div>
+                <div>
+                  <span>Por jugarse</span>
+                  <strong>{resumen.porJugarse}</strong>
+                </div>
+                <div>
+                  <span>Finalizados</span>
+                  <strong>{resumen.finalizados}</strong>
+                </div>
+              </div>
+
+              <div className="tournament-matches-journey" aria-label="Recorrido">
+                {["Ver partidos", "Cargar pronóstico", "Esperar resultado", "Revisar puntos"].map(
+                  (paso, index, pasos) => (
+                    <span key={paso}>
+                      {paso}
+                      {index < pasos.length - 1 && (
+                        <strong aria-hidden="true">→</strong>
+                      )}
+                    </span>
+                  ),
+                )}
+              </div>
+            </Card>
+
+            <Card className="tournament-filter-card tournament-matches-filter-card">
+              <div className="admin-field tournament-matches-filter-card__field">
+                <label htmlFor="tournamentMatchDay">Filtrar por fecha</label>
                 <select
                   id="tournamentMatchDay"
                   onChange={(evento) => setMatchDayId(evento.target.value)}
@@ -200,13 +286,24 @@ function TournamentMatchesPage() {
 
             {partidos.length === 0 && (
               <EmptyState
-                description="No hay partidos cargados para los filtros seleccionados."
-                title="Sin partidos"
+                description={
+                  todosLosPartidos.length === 0
+                    ? "Todavía no existen encuentros programados para este torneo."
+                    : "No hay encuentros programados para la fecha seleccionada."
+                }
+                title={
+                  todosLosPartidos.length === 0
+                    ? "No hay partidos cargados"
+                    : "No hay partidos para esta fecha"
+                }
               />
             )}
 
             {partidos.length > 0 && (
-              <section className="matches-grid" aria-label="Partidos del torneo">
+              <section
+                className="tournament-matches-grid"
+                aria-label="Partidos del torneo"
+              >
                 {partidos.map((partido) => {
                   const prediction = pronosticosPorPartido[partido.id];
                   const finalizado = partido.status === "FINALIZADO";
@@ -215,54 +312,65 @@ function TournamentMatchesPage() {
                     torneo?.status === "ACTIVE" &&
                     partido.status === "POR_JUGARSE" &&
                     !cerrado;
+                  const estadoVisual = statusLabel[partido.status] || partido.status;
+                  const clasePartido = obtenerClasePartido({
+                    cerrado,
+                    finalizado,
+                    puedePronosticar,
+                  });
 
                   return (
-                    <Card className="match-card" key={partido.id}>
-                      <div className="match-card__top">
+                    <Card
+                      className={`tournament-match-card tournament-match-card--${clasePartido}`}
+                      key={partido.id}
+                    >
+                      <div className="tournament-match-card__top">
                         <span>{partido.matchDayName || "Fecha sin nombre"}</span>
                         <Badge
                           size="sm"
                           variant={statusVariant[partido.status] || "neutral"}
                         >
-                          {partido.status}
+                          {estadoVisual}
                         </Badge>
                       </div>
 
-                      <div className="match-card__teams">
+                      <div className="tournament-match-card__teams">
                         <strong>{partido.homeTeamName || "Local"}</strong>
-                        <span>vs</span>
+                        <span>{finalizado ? obtenerResultado(partido) : "VS"}</span>
                         <strong>{partido.awayTeamName || "Visitante"}</strong>
                       </div>
 
-                      <p className="match-card__date">
-                        {formatearFecha(partido.startTime)}
-                      </p>
-
-                      <div className="match-card__result">
-                        <span>{finalizado ? "Resultado final" : "Resultado pendiente"}</span>
-                        <strong>
-                          {tieneResultado(partido)
-                            ? `${partido.homeGoals} - ${partido.awayGoals}`
-                            : "-"}
-                        </strong>
+                      <div className="tournament-match-card__info">
+                        <div>
+                          <span>Fecha y hora</span>
+                          <strong>{formatearFecha(partido.startTime)}</strong>
+                        </div>
+                        <div>
+                          <span>{finalizado ? "Resultado final" : "Resultado pendiente"}</span>
+                          <strong>
+                            {tieneResultado(partido) ? obtenerResultado(partido) : "-"}
+                          </strong>
+                        </div>
                       </div>
 
                       {prediction && (
-                        <div className="tournament-prediction-summary">
-                          <span>Tu pronostico</span>
+                        <div className="tournament-match-card__prediction">
+                          <span>Tu pronóstico</span>
                           <strong>
                             {prediction.predictedHomeGoals} -{" "}
                             {prediction.predictedAwayGoals}
                           </strong>
-                          {finalizado && <small>{prediction.points ?? 0} puntos</small>}
+                          {finalizado && (
+                            <small>{prediction.points ?? 0} puntos</small>
+                          )}
                         </div>
                       )}
 
                       {partido.status === "POR_JUGARSE" && !puedePronosticar && (
-                        <p className="match-card__closed">
+                        <p className="tournament-match-card__closed">
                           {torneo?.status !== "ACTIVE"
-                            ? "Este torneo no permite nuevos pronosticos."
-                            : "La carga de pronosticos ya esta cerrada."}
+                            ? "Este torneo no permite nuevos pronósticos."
+                            : "La carga de pronósticos ya está cerrada."}
                         </p>
                       )}
 
@@ -285,7 +393,7 @@ function TournamentMatchesPage() {
                               tournamentId,
                               matchId,
                               homeGoals,
-                              awayGoals
+                              awayGoals,
                             )
                           }
                           onSaved={recargarLuegoDeGuardar}

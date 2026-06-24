@@ -5,6 +5,7 @@ import ar.edu.utn.frvm.prode.prediction.entity.Prediction;
 import ar.edu.utn.frvm.prode.prediction.repository.PredictionRepository;
 import ar.edu.utn.frvm.prode.ranking.dto.RankingResponse;
 import ar.edu.utn.frvm.prode.tournament.repository.TournamentRepository;
+import ar.edu.utn.frvm.prode.user.entity.Role;
 import ar.edu.utn.frvm.prode.user.entity.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +51,10 @@ public class RankingService {
 
 		for (Prediction prediction : predictions) {
 			User user = prediction.getUser();
+			if (user.getRole() != Role.USER) {
+				continue;
+			}
+
 			UserScoreAccumulator accumulator = accumulatorByUser.computeIfAbsent(
 					user.getId(),
 					id -> new UserScoreAccumulator(user.getId(), user.getUsername())

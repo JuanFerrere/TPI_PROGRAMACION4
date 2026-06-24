@@ -13,10 +13,100 @@ const formatoLabel = {
   LEAGUE: "Tabla general",
 };
 
+const formatoVariant = {
+  GROUPS: "primary",
+  LEAGUE: "amber",
+};
+
+const estadoLabel = {
+  ACTIVE: "Activo",
+  FINISHED: "Finalizado",
+};
+
 const estadoVariant = {
   ACTIVE: "success",
   FINISHED: "primary",
 };
+
+const descripcionDefault =
+  "Consultá los partidos, realizá tus pronósticos y seguí toda la competencia.";
+
+function TournamentFlow({ estado }) {
+  const pasos =
+    estado === "FINISHED"
+      ? ["Partidos", "Resultados", "Tabla final", "Eliminatorias"]
+      : ["Partidos", "Pronósticos", "Resultados", "Ranking"];
+
+  return (
+    <div className="tournament-home-flow" aria-label="Recorrido del torneo">
+      <span className="tournament-home-flow__title">Recorrido del torneo</span>
+      <div className="tournament-home-flow__steps">
+        {pasos.map((paso, index) => (
+          <div className="tournament-home-flow__item" key={paso}>
+            <span className="tournament-home-flow__step">{paso}</span>
+            {index < pasos.length - 1 && (
+              <span className="tournament-home-flow__arrow" aria-hidden="true">
+                →
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ActionJourney({ steps }) {
+  return (
+    <div className="tournament-home-action-card__journey" aria-label="Recorrido">
+      {steps.map((step, index) => (
+        <span key={step}>
+          {step}
+          {index < steps.length - 1 && <strong aria-hidden="true">→</strong>}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function TournamentActionCard({
+  accent = "primary",
+  badge,
+  buttonLabel,
+  buttonVariant = "secondary",
+  description,
+  featured = false,
+  index,
+  journey,
+  onClick,
+  title,
+}) {
+  return (
+    <Card
+      className={`tournament-home-action-card tournament-home-action-card--${accent}${
+        featured ? " tournament-home-action-card--featured" : ""
+      }`}
+    >
+      <div className="tournament-home-action-card__top">
+        <span className="tournament-home-action-card__number">{index}</span>
+        <Badge size="sm" variant={buttonVariant === "amber" ? "amber" : "primary"}>
+          {badge}
+        </Badge>
+      </div>
+      <div className="tournament-home-action-card__body">
+        <h2>{title}</h2>
+        <p>{description}</p>
+      </div>
+      {journey && <ActionJourney steps={journey} />}
+      <Badge className="tournament-home-action-card__availability" size="sm">
+        Disponible
+      </Badge>
+      <Button fullWidth onClick={onClick} variant={buttonVariant}>
+        {buttonLabel}
+      </Button>
+    </Card>
+  );
+}
 
 function TournamentHomePage() {
   const { tournamentId } = useParams();
@@ -24,6 +114,18 @@ function TournamentHomePage() {
   const [torneo, setTorneo] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
+
+  const formato = torneo?.format || "LEAGUE";
+  const estado = torneo?.status || "ACTIVE";
+  const descripcionTorneo = torneo?.description || descripcionDefault;
+  const torneoFinalizado = estado === "FINISHED";
+  const textoEstado = torneoFinalizado
+    ? "El torneo finalizó. Podés consultar los resultados, tus puntos y la clasificación final."
+    : "El torneo está activo. Ya podés consultar los partidos y cargar o actualizar tus pronósticos.";
+  const descripcionTabla =
+    formato === "GROUPS"
+      ? "Consultá las posiciones, puntos, goles y diferencia de cada grupo."
+      : "Consultá la tabla general, los puntos, goles y diferencia de gol.";
 
   useEffect(() => {
     if (!localStorage.getItem("token")) {
@@ -48,13 +150,13 @@ function TournamentHomePage() {
   }, [navigate, tournamentId]);
 
   return (
-    <main className="tournament-page">
-      <section className="tournament-shell">
-        <header className="tournament-header">
+    <main className="tournament-page tournament-home-page">
+      <section className="tournament-shell tournament-home-shell">
+        <header className="tournament-header tournament-home-header">
           <div>
             <Badge variant="primary">Torneo</Badge>
             <h1>{torneo?.name || "Torneo"}</h1>
-            <p>{torneo?.description || "Pronostica partidos y subi en el ranking."}</p>
+            <p>{descripcionTorneo}</p>
           </div>
 
           <Button onClick={() => navigate("/tournaments")} variant="secondary">
@@ -63,7 +165,7 @@ function TournamentHomePage() {
         </header>
 
         {cargando && (
-          <div className="matches-loading" role="status">
+          <div className="matches-loading tournament-home-loading" role="status">
             <Spinner size={28} />
             <span>Cargando torneo...</span>
           </div>
@@ -73,88 +175,88 @@ function TournamentHomePage() {
 
         {!cargando && !error && torneo && (
           <>
-            <Card className="tournament-summary-card">
-              <div className="tournament-card__badges">
-                <Badge size="sm" variant={estadoVariant[torneo.status] || "neutral"}>
-                  {torneo.status}
-                </Badge>
-                <Badge size="sm" variant="amber">
-                  {formatoLabel[torneo.format || "LEAGUE"]}
-                </Badge>
+            <Card className="tournament-home-hero">
+              <div className="tournament-home-hero__content">
+                <div className="tournament-home-hero__badges">
+                  <Badge size="sm" variant={estadoVariant[estado] || "neutral"}>
+                    {estadoLabel[estado] || estado}
+                  </Badge>
+                  <Badge size="sm" variant={formatoVariant[formato] || "neutral"}>
+                    {formatoLabel[formato] || "Tabla general"}
+                  </Badge>
+                </div>
+                <h2>{torneo.name}</h2>
+                <p>{descripcionTorneo}</p>
+                <div className="tournament-home-hero__status">
+                  <span>Estado de la competencia</span>
+                  <strong>{textoEstado}</strong>
+                </div>
               </div>
-              <h2>{torneo.name}</h2>
-              <p>
-                {torneo.status === "FINISHED"
-                  ? "El torneo finalizo. Podes revisar partidos, pronosticos y ranking."
-                  : "El torneo esta activo. Ya podes cargar y actualizar tus pronosticos."}
-              </p>
+
+              <TournamentFlow estado={estado} />
             </Card>
 
-            <section className="tournament-grid">
-              <Card className="tournament-card">
-                <Badge size="sm" variant="primary">Fixture</Badge>
-                <h2>Partidos y pronosticos</h2>
-                <p>Elegí los partidos del torneo y guarda tus marcadores.</p>
-                <Button
-                  fullWidth
-                  onClick={() => navigate(`/tournaments/${tournamentId}/matches`)}
-                  variant="secondary"
-                >
-                  Ver partidos
-                </Button>
-              </Card>
+            <section className="tournament-home-actions">
+              <TournamentActionCard
+                accent="fixture"
+                badge="FIXTURE"
+                buttonLabel="Ver partidos"
+                buttonVariant="primary"
+                description="Consultá los encuentros del torneo y cargá tus marcadores antes del cierre."
+                featured
+                index="01"
+                journey={["Elegir partido", "Cargar marcador", "Esperar resultado"]}
+                onClick={() => navigate(`/tournaments/${tournamentId}/matches`)}
+                title="Partidos y pronósticos"
+              />
 
-              <Card className="tournament-card">
-                <Badge size="sm" variant="amber">Mis jugadas</Badge>
-                <h2>Mis pronosticos</h2>
-                <p>Consulta tus pronosticos, resultados y puntos del torneo.</p>
-                <Button
-                  fullWidth
+              <div className="tournament-home-actions__pair">
+                <TournamentActionCard
+                  accent="plays"
+                  badge="MIS JUGADAS"
+                  buttonLabel="Ver pronósticos"
+                  buttonVariant="amber"
+                  description="Revisá tus marcadores, resultados y puntos obtenidos en este torneo."
+                  index="02"
                   onClick={() => navigate(`/tournaments/${tournamentId}/predictions`)}
-                  variant="secondary"
-                >
-                  Ver pronosticos
-                </Button>
-              </Card>
+                  title="Mis pronósticos"
+                />
 
-              <Card className="tournament-card">
-                <Badge size="sm" variant="success">Ranking</Badge>
-                <h2>Ranking</h2>
-                <p>Compará tus puntos contra otros usuarios en este torneo.</p>
-                <Button
-                  fullWidth
+                <TournamentActionCard
+                  accent="ranking"
+                  badge="CLASIFICACIÓN"
+                  buttonLabel="Ver ranking"
+                  buttonVariant="success"
+                  description="Compará tus puntos con los demás participantes de esta competencia."
+                  index="03"
                   onClick={() => navigate(`/tournaments/${tournamentId}/ranking`)}
-                  variant="secondary"
-                >
-                  Ver ranking
-                </Button>
-              </Card>
+                  title="Ranking"
+                />
+              </div>
 
-              <Card className="tournament-card">
-                <Badge size="sm" variant="primary">Tabla</Badge>
-                <h2>Tabla deportiva</h2>
-                <p>Consulta posiciones, puntos, goles y diferencia de gol del torneo.</p>
-                <Button
-                  fullWidth
+              <div className="tournament-home-actions__pair">
+                <TournamentActionCard
+                  accent="standings"
+                  badge="POSICIONES"
+                  buttonLabel="Ver tabla"
+                  buttonVariant="secondary"
+                  description={descripcionTabla}
+                  index="04"
                   onClick={() => navigate(`/tournaments/${tournamentId}/standings`)}
-                  variant="secondary"
-                >
-                  Ver tabla
-                </Button>
-              </Card>
+                  title="Tabla deportiva"
+                />
 
-              <Card className="tournament-card">
-                <Badge size="sm" variant="amber">Eliminatorias</Badge>
-                <h2>Llave eliminatoria</h2>
-                <p>Consulta cruces, resultados y ganadores del torneo.</p>
-                <Button
-                  fullWidth
+                <TournamentActionCard
+                  accent="knockout"
+                  badge="FASE FINAL"
+                  buttonLabel="Ver llave"
+                  buttonVariant="secondary"
+                  description="Consultá los cruces, resultados y equipos clasificados en cada ronda."
+                  index="05"
                   onClick={() => navigate(`/tournaments/${tournamentId}/knockout`)}
-                  variant="secondary"
-                >
-                  Ver llave
-                </Button>
-              </Card>
+                  title="Llave eliminatoria"
+                />
+              </div>
             </section>
           </>
         )}

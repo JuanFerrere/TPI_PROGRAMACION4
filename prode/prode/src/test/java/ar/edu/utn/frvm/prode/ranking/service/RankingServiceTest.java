@@ -90,6 +90,26 @@ class RankingServiceTest {
 		assertEquals("beto", ranking.getFirst().username());
 	}
 
+	@Test
+	void rankingExcluyeUsuariosAdminYSostienePuntosDeUser() {
+		User user = user(1L, "ana");
+		User admin = user(2L, "admin");
+		admin.setRole(Role.ADMIN);
+		Tournament tournament = tournament(1L);
+		Prediction userPrediction = prediction(user, match(tournament), 3, true);
+		Prediction adminPrediction = prediction(admin, match(tournament), 9, true);
+		when(tournamentRepository.existsById(1L)).thenReturn(true);
+		when(predictionRepository.findByMatchTournamentId(1L))
+				.thenReturn(List.of(userPrediction, adminPrediction));
+
+		List<RankingResponse> ranking = rankingService.getTournamentGlobalRanking(1L);
+
+		assertEquals(1, ranking.size());
+		assertEquals("ana", ranking.getFirst().username());
+		assertEquals(3, ranking.getFirst().totalPoints());
+		assertEquals(1L, ranking.getFirst().exactHits());
+	}
+
 	private User user(Long id, String username) {
 		User user = new User(username, username + "@mail.com", "hash", Role.USER);
 		user.setId(id);
