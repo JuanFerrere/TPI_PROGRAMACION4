@@ -116,6 +116,46 @@ function AdminTournamentSchedulePage() {
     [equipos, isGroups]
   );
 
+  const equipoLocalSeleccionado = useMemo(
+    () =>
+      equipos.find(
+        (equipo) => String(equipo.id) === String(homeTournamentTeamId)
+      ),
+    [equipos, homeTournamentTeamId]
+  );
+
+  const equiposVisitantesDisponibles = useMemo(() => {
+    if (!homeTournamentTeamId) {
+      return [];
+    }
+
+    if (!isGroups) {
+      return equiposOrdenados.filter(
+        (equipo) => String(equipo.id) !== String(homeTournamentTeamId)
+      );
+    }
+
+    const grupoLocal = (equipoLocalSeleccionado?.groupName || "")
+      .trim()
+      .toUpperCase();
+
+    return equiposOrdenados.filter((equipo) => {
+      const grupoEquipo = (equipo.groupName || "")
+        .trim()
+        .toUpperCase();
+
+      return (
+        String(equipo.id) !== String(homeTournamentTeamId) &&
+        grupoEquipo === grupoLocal
+      );
+    });
+  }, [
+    equiposOrdenados,
+    equipoLocalSeleccionado,
+    homeTournamentTeamId,
+    isGroups,
+  ]);
+
   const partidosDeFecha = useMemo(
     () =>
       partidos.filter(
@@ -215,6 +255,16 @@ function AdminTournamentSchedulePage() {
           return;
         }
 
+        if (
+          isGroups &&
+          homeTeam.groupName !== awayTeam.groupName
+        ) {
+          errors.push(
+            `Linea ${index + 1}: los equipos deben pertenecer al mismo grupo`
+          );
+          return;
+        }
+
         if (!isoDate) {
           errors.push(`Linea ${index + 1}: fecha y hora invalida`);
           return;
@@ -228,7 +278,7 @@ function AdminTournamentSchedulePage() {
       });
 
     return { errors, matches };
-  }, [equipos, partidosBulk]);
+  }, [equipos, partidosBulk, isGroups]);
 
   const cargarDatos = useCallback(async () => {
     setCargando(true);
@@ -351,6 +401,26 @@ function AdminTournamentSchedulePage() {
 
     if (homeTournamentTeamId === awayTournamentTeamId) {
       setError("Local y visitante no pueden ser el mismo equipo.");
+      return;
+    }
+
+    const equipoLocal = equipos.find(
+      (equipo) =>
+        String(equipo.id) === String(homeTournamentTeamId)
+    );
+
+    const equipoVisitante = equipos.find(
+      (equipo) =>
+        String(equipo.id) === String(awayTournamentTeamId)
+    );
+
+    if (
+      isGroups &&
+      equipoLocal?.groupName !== equipoVisitante?.groupName
+    ) {
+      setError(
+        "En la fase de grupos, ambos equipos deben pertenecer al mismo grupo."
+      );
       return;
     }
 
@@ -495,7 +565,7 @@ function AdminTournamentSchedulePage() {
               <h2>Fechas y partidos</h2>
               <p>
                 {isGroups
-                  ? "Los equipos muestran grupo como referencia, pero se permiten cruces entre grupos."
+                  ? "En la fase de grupos, los partidos solo pueden disputarse entre equipos del mismo grupo."
                   : "El torneo usa una lista general de equipos."}
               </p>
             </Card>
@@ -585,11 +655,10 @@ function AdminTournamentSchedulePage() {
                   <section className="admin-schedule-list">
                     {fechas.map((fecha) => (
                       <Card
-                        className={`admin-schedule-matchday-card ${
-                          String(selectedMatchDayId) === String(fecha.id)
-                            ? "admin-schedule-matchday-card--active"
-                            : ""
-                        }`}
+                        className={`admin-schedule-matchday-card ${String(selectedMatchDayId) === String(fecha.id)
+                          ? "admin-schedule-matchday-card--active"
+                          : ""
+                          }`}
                         key={fecha.id}
                       >
                         <div>
@@ -664,12 +733,13 @@ function AdminTournamentSchedulePage() {
                           <select
                             disabled={guardandoPartido}
                             id="homeTeam"
-                            onChange={(evento) =>
-                              setHomeTournamentTeamId(evento.target.value)
-                            }
+                            onChange={(evento) => {
+                              setHomeTournamentTeamId(evento.target.value);
+                              setAwayTournamentTeamId("");
+                            }}
                             value={homeTournamentTeamId}
                           >
-                            <option value="">Seleccionar</option>
+                            <option value="">Seleccionar equipo local</option>
                             {equiposOrdenados.map((equipo) => (
                               <option
                                 disabled={String(equipo.id) === String(awayTournamentTeamId)}
@@ -687,17 +757,21 @@ function AdminTournamentSchedulePage() {
                         <div className="admin-field">
                           <label htmlFor="awayTeam">Equipo visitante</label>
                           <select
-                            disabled={guardandoPartido}
+                            disabled={guardandoPartido || !homeTournamentTeamId}
                             id="awayTeam"
                             onChange={(evento) =>
                               setAwayTournamentTeamId(evento.target.value)
                             }
                             value={awayTournamentTeamId}
                           >
-                            <option value="">Seleccionar</option>
-                            {equiposOrdenados.map((equipo) => (
+                            <option value="">
+                              {!homeTournamentTeamId
+                                ? "Primero seleccioná el equipo local"
+                                : "Seleccionar equipo visitante"}
+                            </option>
+
+                            {equiposVisitantesDisponibles.map((equipo) => (
                               <option
-                                disabled={String(equipo.id) === String(homeTournamentTeamId)}
                                 key={equipo.id}
                                 value={equipo.id}
                               >
