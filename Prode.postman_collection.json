@@ -1,0 +1,322 @@
+{
+  "info": {
+    "name": "Prode UTN - TPI Programacion 4",
+    "_postman_id": "prode-utn-tpi4-2026",
+    "description": "Coleccion de la API del Prode (UTN FRVM).\n\nUSO RAPIDO:\n1) Ejecutar 'Auth > Login' (guarda {{token}} automaticamente en la variable de coleccion).\n2) Los demas requests ya usan 'Authorization: Bearer {{token}}'.\n\nNOTA HTTPS: el backend corre con certificado autofirmado. En Postman desactivar 'Settings > General > SSL certificate verification'. Si se corre con SSL_ENABLED=false, cambiar la variable baseUrl a http://localhost:8080.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://localhost:8080" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register (publico)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"nuevo_user\",\n  \"email\": \"nuevo@prode.local\",\n  \"password\": \"Password123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] }
+          }
+        },
+        {
+          "name": "Login (guarda token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var data = pm.response.json();",
+                  "if (data && data.token) {",
+                  "  pm.collectionVariables.set('token', data.token);",
+                  "  console.log('Token guardado en {{token}}');",
+                  "} else {",
+                  "  console.log('La respuesta no trajo token');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"usernameOrEmail\": \"admin\",\n  \"password\": \"CAMBIAR_POR_LA_DEL_.env\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Equipos",
+      "item": [
+        {
+          "name": "Crear equipo (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Boca Juniors\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/teams", "host": ["{{baseUrl}}"], "path": ["api", "teams"] }
+          }
+        },
+        {
+          "name": "Listar / buscar equipos",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/teams?name=", "host": ["{{baseUrl}}"], "path": ["api", "teams"], "query": [ { "key": "name", "value": "", "description": "filtro opcional por nombre" } ] }
+          }
+        },
+        {
+          "name": "Obtener equipo",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/teams/1", "host": ["{{baseUrl}}"], "path": ["api", "teams", "1"] }
+          }
+        },
+        {
+          "name": "Eliminar equipo (ADMIN)",
+          "request": {
+            "method": "DELETE",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/teams/1", "host": ["{{baseUrl}}"], "path": ["api", "teams", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fechas",
+      "item": [
+        {
+          "name": "Crear fecha (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Fecha 1 - Fase de Grupos\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/match-days", "host": ["{{baseUrl}}"], "path": ["api", "match-days"] }
+          }
+        },
+        {
+          "name": "Listar fechas (filtro por estado)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/match-days?status=", "host": ["{{baseUrl}}"], "path": ["api", "match-days"], "query": [ { "key": "status", "value": "", "description": "PROGRAMADA | EN_JUEGO | FINALIZADA (opcional)" } ] }
+          }
+        },
+        {
+          "name": "Obtener fecha",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/match-days/1", "host": ["{{baseUrl}}"], "path": ["api", "match-days", "1"] }
+          }
+        },
+        {
+          "name": "Modificar fecha (ADMIN)",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Fecha 1 - Renombrada\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/match-days/1", "host": ["{{baseUrl}}"], "path": ["api", "match-days", "1"] }
+          }
+        },
+        {
+          "name": "Eliminar fecha (ADMIN)",
+          "request": {
+            "method": "DELETE",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/match-days/1", "host": ["{{baseUrl}}"], "path": ["api", "match-days", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Partidos",
+      "item": [
+        {
+          "name": "Crear partido (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"matchDayId\": 1,\n  \"homeTeamId\": 1,\n  \"awayTeamId\": 2,\n  \"startTime\": \"2026-07-01T20:00:00Z\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/matches", "host": ["{{baseUrl}}"], "path": ["api", "matches"] }
+          }
+        },
+        {
+          "name": "Listar partidos (filtro por fecha)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/matches?matchDayId=", "host": ["{{baseUrl}}"], "path": ["api", "matches"], "query": [ { "key": "matchDayId", "value": "", "description": "id de la fecha (opcional)" } ] }
+          }
+        },
+        {
+          "name": "Obtener partido",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/matches/1", "host": ["{{baseUrl}}"], "path": ["api", "matches", "1"] }
+          }
+        },
+        {
+          "name": "Modificar partido (ADMIN)",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"homeTeamId\": 1,\n  \"awayTeamId\": 3,\n  \"startTime\": \"2026-07-01T21:00:00Z\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/matches/1", "host": ["{{baseUrl}}"], "path": ["api", "matches", "1"] }
+          }
+        },
+        {
+          "name": "Iniciar partido / EN_JUEGO (ADMIN)",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/matches/1/start", "host": ["{{baseUrl}}"], "path": ["api", "matches", "1", "start"] }
+          }
+        },
+        {
+          "name": "Cargar resultado (ADMIN)",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"homeGoals\": 2,\n  \"awayGoals\": 1\n}" },
+            "url": { "raw": "{{baseUrl}}/api/matches/1/result", "host": ["{{baseUrl}}"], "path": ["api", "matches", "1", "result"] }
+          }
+        },
+        {
+          "name": "Eliminar partido (ADMIN)",
+          "request": {
+            "method": "DELETE",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/matches/1", "host": ["{{baseUrl}}"], "path": ["api", "matches", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pronosticos",
+      "item": [
+        {
+          "name": "Crear / modificar pronostico (USER)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"predictedHomeGoals\": 2,\n  \"predictedAwayGoals\": 1\n}" },
+            "url": { "raw": "{{baseUrl}}/api/predictions/matches/1", "host": ["{{baseUrl}}"], "path": ["api", "predictions", "matches", "1"] }
+          }
+        },
+        {
+          "name": "Mis pronosticos (filtro por estado)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/predictions/me?status=", "host": ["{{baseUrl}}"], "path": ["api", "predictions", "me"], "query": [ { "key": "status", "value": "", "description": "POR_JUGARSE | EN_JUEGO | FINALIZADO (opcional)" } ] }
+          }
+        },
+        {
+          "name": "Pronosticos de un partido (tras el cierre)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/predictions/matches/1", "host": ["{{baseUrl}}"], "path": ["api", "predictions", "matches", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ranking",
+      "item": [
+        {
+          "name": "Ranking global",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/rankings/global", "host": ["{{baseUrl}}"], "path": ["api", "rankings", "global"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Grupos",
+      "item": [
+        {
+          "name": "Crear grupo (USER)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Pena de la comision\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/groups", "host": ["{{baseUrl}}"], "path": ["api", "groups"] }
+          }
+        },
+        {
+          "name": "Unirse a grupo (USER)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"inviteCode\": \"PEGAR_CODIGO\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/groups/join", "host": ["{{baseUrl}}"], "path": ["api", "groups", "join"] }
+          }
+        },
+        {
+          "name": "Mis grupos",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/groups/me", "host": ["{{baseUrl}}"], "path": ["api", "groups", "me"] }
+          }
+        },
+        {
+          "name": "Detalle de grupo",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/groups/1", "host": ["{{baseUrl}}"], "path": ["api", "groups", "1"] }
+          }
+        },
+        {
+          "name": "Ranking del grupo",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/groups/1/ranking", "host": ["{{baseUrl}}"], "path": ["api", "groups", "1", "ranking"] }
+          }
+        },
+        {
+          "name": "Salir del grupo",
+          "request": {
+            "method": "DELETE",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/groups/1/members/me", "host": ["{{baseUrl}}"], "path": ["api", "groups", "1", "members", "me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check (publico)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/health", "host": ["{{baseUrl}}"], "path": ["api", "health"] }
+          }
+        }
+      ]
+    }
+  ]
+}
